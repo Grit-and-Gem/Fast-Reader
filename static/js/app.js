@@ -11,6 +11,12 @@ let timerId      = null;
 let fontFamily   = 'Georgia';
 let fontSize     = 52;
 let selectedFile = null;
+let paraGapEnabled = true;
+
+// Audio state
+let audioEl       = null;  // HTMLAudioElement
+let audioPlaying  = false;
+let audioObjectURL = null;
 
 // ── DOM refs ───────────────────────────────────────────────
 const wordPrefix      = document.getElementById('wordPrefix');
@@ -91,11 +97,28 @@ function tick() {
     return;
   }
 
-  displayWord(words[currentIndex]);
+  const token = words[currentIndex];
+  const interval = 60000 / wpm;
+
+  // Paragraph break: insert a longer pause, skip the sentinel
+  if (token === '__PARA__' && paraGapEnabled) {
+    currentIndex++;
+    updateProgress();
+    timerId = setTimeout(tick, interval * 3);  // 3x normal pause
+    return;
+  }
+  // If gap disabled, just skip the sentinel silently
+  if (token === '__PARA__') {
+    currentIndex++;
+    tick();
+    return;
+  }
+
+  displayWord(token);
   currentIndex++;
   updateProgress();
 
-  timerId = setTimeout(tick, 60000 / wpm);
+  timerId = setTimeout(tick, interval);
 }
 
 function play() {
@@ -132,7 +155,9 @@ function stepBack() {
   pause();
   if (currentIndex > 1) currentIndex -= 2;
   else currentIndex = 0;
-  if (words.length > 0) {
+  // Skip past __PARA__ sentinels
+  while (currentIndex > 0 && words[currentIndex] === '__PARA__') currentIndex--;
+  if (words.length > 0 && currentIndex < words.length) {
     displayWord(words[currentIndex]);
     currentIndex++;
     updateProgress();
@@ -141,7 +166,9 @@ function stepBack() {
 
 function stepForward() {
   pause();
-  if (currentIndex < words.length - 1) {
+  // Skip past __PARA__ sentinels
+  while (currentIndex < words.length && words[currentIndex] === '__PARA__') currentIndex++;
+  if (currentIndex < words.length) {
     displayWord(words[currentIndex]);
     currentIndex++;
     updateProgress();
@@ -163,10 +190,12 @@ function seekTo(event) {
   if (words.length === 0) return;
   const rect = event.currentTarget.getBoundingClientRect();
   const pct  = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-  const idx  = Math.floor(pct * words.length);
+  let idx  = Math.floor(pct * words.length);
+  // Skip past __PARA__ sentinels
+  while (idx < words.length && words[idx] === '__PARA__') idx++;
   currentIndex = idx;
-  if (words.length > 0) {
-    displayWord(words[Math.min(idx, words.length - 1)]);
+  if (currentIndex < words.length) {
+    displayWord(words[currentIndex]);
     updateProgress();
     placeholderText.style.display = 'none';
   }
@@ -342,6 +371,77 @@ document.addEventListener('keydown', (e) => {
       break;
   }
 });
+
+// ── Paragraph gap toggle ───────────────────────────────────
+function toggleParaGap(enabled) {
+  paraGapEnabled = enabled;
+  document.getElementById('paraGapLabel').textContent = enabled ? 'On' : 'Off';
+}
+
+// ── Audio player ───────────────────────────────────────────
+function loadAudio(file) {
+  if (!file) return;
+
+  // Revoke previous object URL
+  if (audioObjectURL) URL.revokeObjectURL(audioObjectURL);
+
+  // Stop previous audio
+  if (audioEl) {
+    audioEl.pause();
+    audioEl = null;
+    audioPlaying = false;
+  }
+
+  audioObjectURL = URL.createObjectURL(file);
+  audioEl = new Audio(audioObjectURL);
+  audioEl.loop = document.getElementById('audioLoopToggle').checked;
+  audioEl.volume = parseFloat(document.getElementById('audioVolume').value);
+
+  audioEl.addEventListener('ended', () => {
+    if (!audioEl.loop) {
+      audioPlaying = false;
+      updateAudioButton();
+    }
+  });
+
+  document.getElementById('audioFilename').textContent = file.name;
+  document.getElementById('audioPlayerRow').classList.remove('hidden');
+  audioPlaying = false;
+  updateAudioButton();
+}
+
+function toggleAudio() {
+  if (!audioEl) return;
+  if (audioPlaying) {
+    audioEl.pause();
+    audioPlaying = false;
+  } else {
+    audioEl.play();
+    audioPlaying = true;
+  }
+  updateAudioButton();
+}
+
+function updateAudioButton() {
+  const btn = document.getElementById('btnAudioPlay');
+  const iconPlay  = btn.querySelector('.audio-icon-play');
+  const iconPause = btn.querySelector('.audio-icon-pause');
+  if (audioPlaying) {
+    iconPlay.classList.add('hidden');
+    iconPause.classList.remove('hidden');
+  } else {
+    iconPlay.classList.remove('hidden');
+    iconPause.classList.add('hidden');
+  }
+}
+
+function setAudioVolume(value) {
+  if (audioEl) audioEl.volume = parseFloat(value);
+}
+
+function setAudioLoop(enabled) {
+  if (audioEl) audioEl.loop = enabled;
+}
 
 // ── Init ───────────────────────────────────────────────────
 applyFontStyle();

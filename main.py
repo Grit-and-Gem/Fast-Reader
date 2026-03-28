@@ -56,7 +56,18 @@ def clean_text(text: str) -> str:
 
 
 def split_words(text: str) -> list[str]:
-    return [w for w in text.split() if w.strip()]
+    """Split text into words, inserting a __PARA__ sentinel at paragraph boundaries."""
+    # Normalise line endings and split on blank lines (paragraph breaks)
+    paragraphs = re.split(r"\n\s*\n", text)
+    tokens: list[str] = []
+    for i, para in enumerate(paragraphs):
+        words = [w for w in para.split() if w.strip()]
+        if not words:
+            continue
+        if tokens:  # add break between paragraphs (not before the first)
+            tokens.append("__PARA__")
+        tokens.extend(words)
+    return tokens
 
 
 @app.get("/")

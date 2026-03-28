@@ -80,6 +80,72 @@
         <span class="unit">px</span>
       </div>
     </div>
+
+    <div class="setting-group">
+      <label>Paragraph Gap</label>
+      <label class="toggle">
+        <input type="checkbox" id="paraGapToggle" checked onchange="toggleParaGap(this.checked)" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="paraGapLabel">On</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- Audio Player -->
+  <section class="audio-section" id="audioSection">
+    <div class="audio-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+      </svg>
+      <span>Focus Music</span>
+      <span class="audio-hint">(optional)</span>
+    </div>
+
+    <div class="audio-controls">
+      <div class="audio-upload-row">
+        <button class="btn-sm" onclick="document.getElementById('audioInput').click()">Choose MP3</button>
+        <input type="file" id="audioInput" accept="audio/*" style="display:none" onchange="loadAudio(this.files[0])" />
+        <span class="audio-filename" id="audioFilename">No file loaded</span>
+      </div>
+
+      <div class="audio-player-row hidden" id="audioPlayerRow">
+        <button class="ctrl-btn-sm" id="btnAudioPlay" onclick="toggleAudio()" title="Play / Pause music">
+          <svg class="audio-icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg class="audio-icon-pause hidden" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        </button>
+
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="volume-icon">
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+        </svg>
+        <input type="range" id="audioVolume" min="0" max="1" step="0.05" value="0.5" oninput="setAudioVolume(this.value)" class="volume-slider" />
+
+        <label class="toggle toggle-sm">
+          <input type="checkbox" id="audioLoopToggle" checked onchange="setAudioLoop(this.checked)" />
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">Loop</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="audio-suggestions">
+      <p class="suggestion-title">Suggested focus music (progressive / ambient beats):</p>
+      <ul>
+        <li><strong>Brian Eno</strong> — Music for Airports (ambient)</li>
+        <li><strong>Tycho</strong> — Dive, Awake (progressive chillwave)</li>
+        <li><strong>Boards of Canada</strong> — Music Has the Right to Children</li>
+        <li><strong>Marconi Union</strong> — Weightless (scientifically calming)</li>
+        <li><strong>Emancipator</strong> — Soon It Will Be Cold Enough (downtempo)</li>
+        <li><strong>Odesza</strong> — In Return (progressive electronic)</li>
+        <li><strong>Kiasmos</strong> — Kiasmos (minimal techno / ambient)</li>
+        <li><strong>Carbon Based Lifeforms</strong> — Interloper (progressive ambient)</li>
+        <li><strong>Nils Frahm</strong> — Spaces (modern classical / ambient)</li>
+        <li><strong>Bonobo</strong> — Black Sands (progressive downtempo)</li>
+      </ul>
+    </div>
   </section>
 
   <!-- Word Display -->
