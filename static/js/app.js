@@ -13,6 +13,11 @@ let fontSize     = 52;
 let selectedFile = null;
 let paraGapEnabled = true;
 
+// PDF page state
+let pages       = [];   // [{start_index, thumbnail}, ...]
+let currentPage = 0;
+let isPdfMode   = false;
+
 // Audio state
 let audioEl       = null;  // HTMLAudioElement
 let audioPlaying  = false;
@@ -38,6 +43,9 @@ const wpmSlider       = document.getElementById('wpmSlider');
 const wpmInput        = document.getElementById('wpmInput');
 const fontSizeSlider  = document.getElementById('fontSizeSlider');
 const fontSizeInput   = document.getElementById('fontSizeInput');
+const pdfNav          = document.getElementById('pdfNav');
+const pdfThumbnail    = document.getElementById('pdfThumbnail');
+const pdfPageLabel    = document.getElementById('pdfPageLabel');
 
 // ── Optimal Recognition Point ──────────────────────────────
 // Returns the index of the focus letter within the word.
@@ -80,6 +88,8 @@ function updateProgress() {
     const s = Math.round((mins - m) * 60);
     timeEstimate.textContent = s > 0 ? `~${m}m ${s}s left` : `~${m}m left`;
   }
+
+  updatePagePreview();
 }
 
 // ── Playback engine ────────────────────────────────────────
@@ -237,6 +247,19 @@ function onWordsLoaded(data) {
   words        = data.words;
   currentIndex = 0;
 
+  // PDF mode detection
+  if (data.pages && data.pages.length > 0) {
+    pages = data.pages;
+    isPdfMode = true;
+    currentPage = 0;
+    pdfNav.classList.remove('hidden');
+  } else {
+    pages = [];
+    isPdfMode = false;
+    currentPage = 0;
+    pdfNav.classList.add('hidden');
+  }
+
   // Show first word paused
   placeholderText.style.display = 'none';
   displayWord(words[0]);
@@ -369,6 +392,14 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       updateWPM(wpm - 50);
       break;
+    case 'PageDown':
+      e.preventDefault();
+      if (isPdfMode) goToNextPage(); else goToNextPara();
+      break;
+    case 'PageUp':
+      e.preventDefault();
+      if (isPdfMode) goToPrevPage(); else goToPrevPara();
+      break;
   }
 });
 
@@ -441,6 +472,115 @@ function setAudioVolume(value) {
 
 function setAudioLoop(enabled) {
   if (audioEl) audioEl.loop = enabled;
+}
+
+// ── PDF page tracking ──────────────────────────────────────
+function getCurrentPage(index) {
+  // Binary search: find the last page whose start_index <= index
+  let lo = 0, hi = pages.length - 1;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (pages[mid].start_index <= index) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return lo;
+}
+
+function updatePagePreview() {
+  if (!isPdfMode || pages.length === 0) return;
+  const pageIdx = getCurrentPage(Math.max(0, currentIndex - 1));
+  if (pageIdx !== currentPage) {
+    currentPage = pageIdx;
+  }
+  pdfThumbnail.src = pages[currentPage].thumbnail;
+  pdfPageLabel.textContent = `Page ${currentPage + 1} / ${pages.length}`;
+}
+
+// ── PDF page navigation ────────────────────────────────────
+function goToNextPage() {
+  if (!isPdfMode || currentPage >= pages.length - 1) return;
+  pause();
+  const nextPage = currentPage + 1;
+  currentIndex = pages[nextPage].start_index;
+  while (currentIndex < words.length && words[currentIndex] === '__PARA__') currentIndex++;
+  if (currentIndex < words.length) {
+    displayWord(words[currentIndex]);
+    currentIndex++;
+    updateProgress();
+    placeholderText.style.display = 'none';
+  }
+}
+
+function goToPrevPage() {
+  if (!isPdfMode || currentPage <= 0) return;
+  pause();
+  const prevPage = currentPage - 1;
+  currentIndex = pages[prevPage].start_index;
+  while (currentIndex < words.length && words[currentIndex] === '__PARA__') currentIndex++;
+  if (currentIndex < words.length) {
+    displayWord(words[currentIndex]);
+    currentIndex++;
+    updateProgress();
+    placeholderText.style.display = 'none';
+  }
+}
+
+// ── Paragraph navigation ───────────────────────────────────
+function goToNextPara() {
+  pause();
+  let idx = currentIndex;
+  // Scan forward to find the next __PARA__ token
+  while (idx < words.length && words[idx] !== '__PARA__') idx++;
+  // Skip past the __PARA__ sentinel(s)
+  while (idx < words.length && words[idx] === '__PARA__') idx++;
+  if (idx < words.length) {
+    currentIndex = idx;
+    displayWord(words[currentIndex]);
+    currentIndex++;
+    updateProgress();
+    placeholderText.style.display = 'none';
+  }
+}
+
+function goToPrevPara() {
+  pause();
+  // currentIndex points to the *next* word to display,
+  // so go back to find the previous paragraph start.
+  let idx = currentIndex - 2;
+  if (idx < 0) idx = 0;
+
+  // Skip back past current-paragraph words to find a __PARA__
+  while (idx > 0 && words[idx] !== '__PARA__') idx--;
+
+  if (words[idx] === '__PARA__' && idx > 0) {
+    idx--;  // Move before the __PARA__
+    // Skip back to find the previous __PARA__ or beginning
+    while (idx > 0 && words[idx] !== '__PARA__') idx--;
+    // If we landed on a __PARA__, move forward past it
+    if (words[idx] === '__PARA__') idx++;
+  } else {
+    idx = 0;  // We're in the first paragraph
+  }
+
+  currentIndex = idx;
+  if (currentIndex < words.length && words[currentIndex] !== '__PARA__') {
+    displayWord(words[currentIndex]);
+    currentIndex++;
+    updateProgress();
+    placeholderText.style.display = 'none';
+  }
+}
+
+// ── Suggestions toggle ─────────────────────────────────────
+function toggleSuggestions(e) {
+  e.preventDefault();
+  const content = document.getElementById('suggestionsContent');
+  const toggle  = document.getElementById('suggestionsToggle');
+  const isHidden = content.classList.toggle('hidden');
+  toggle.textContent = isHidden ? 'Show suggestions' : 'Hide suggestions';
 }
 
 // ── Init ───────────────────────────────────────────────────

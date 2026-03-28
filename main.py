@@ -1,5 +1,6 @@
 import io
 import re
+import base64
 import fitz  # PyMuPDF
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,20 +84,46 @@ async def upload_pdf(file: UploadFile = File(...)):
     file_bytes = await file.read()
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
-        text_parts = []
-        for page in doc:
-            text_parts.append(page.get_text("text"))
+        all_words: list[str] = []
+        pages_meta: list[dict] = []
+
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+
+            # Generate thumbnail (half-size PNG → base64)
+            pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5))
+            thumb_b64 = (
+                "data:image/png;base64,"
+                + base64.b64encode(pix.tobytes("png")).decode("ascii")
+            )
+
+            # Record page start index (before adding separator)
+            page_start = len(all_words)
+
+            # Extract and tokenise this page's text
+            page_text = page.get_text("text")
+            page_words = split_words(clean_text(page_text))
+
+            if page_words:
+                # Insert paragraph separator between pages
+                if all_words:
+                    all_words.append("__PARA__")
+                    page_start = len(all_words)
+                all_words.extend(page_words)
+
+            pages_meta.append({
+                "start_index": page_start,
+                "thumbnail": thumb_b64,
+            })
+
         doc.close()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
 
-    full_text = " ".join(text_parts)
-    words = split_words(clean_text(full_text))
-
-    if not words:
+    if not all_words:
         raise HTTPException(status_code=400, detail="No text found in PDF.")
 
-    return {"words": words, "count": len(words)}
+    return {"words": all_words, "count": len(all_words), "pages": pages_meta}
 
 
 @app.post("/api/upload-text")

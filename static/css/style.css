@@ -466,6 +466,65 @@ select:focus {
   text-align: right;
 }
 
+/* ── PDF Navigation ── */
+.pdf-nav {
+  width: 100%;
+  max-width: 800px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pdf-thumbnail-wrapper {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.pdf-thumbnail {
+  display: block;
+  max-height: 180px;
+  width: auto;
+}
+
+.pdf-nav-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pdf-page-label {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.pdf-nav-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Suggestions Toggle ── */
+.suggestions-toggle {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.suggestions-toggle:hover {
+  text-decoration: underline;
+}
+
 /* ── Toggle Switch ── */
 .toggle {
   display: flex;
