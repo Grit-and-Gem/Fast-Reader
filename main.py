@@ -1,4 +1,5 @@
 import io
+import re
 import fitz  # PyMuPDF
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +21,38 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class TextInput(BaseModel):
     text: str
+
+
+def clean_text(text: str) -> str:
+    """Strip markdown / rich-text formatting so the reader sees plain words."""
+    # HTML tags
+    text = re.sub(r"<[^>]+>", "", text)
+    # Code fences (``` ... ```)
+    text = re.sub(r"```[^\S\n]*\w*\n[\s\S]*?```", "", text)
+    # Markdown images ![alt](url) → alt
+    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    # Markdown links [text](url) → text
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    # Bold/italic: **text**, __text__, *text*, _text_
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"__(.+?)__", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)
+    # Strikethrough ~~text~~
+    text = re.sub(r"~~(.+?)~~", r"\1", text)
+    # Inline code `code`
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    # Horizontal rules (lines that are only ---, ***, ___)
+    text = re.sub(r"^[ \t]*[-*_]{3,}[ \t]*$", "", text, flags=re.MULTILINE)
+    # Headings: strip leading # markers
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    # Blockquotes: strip leading >
+    text = re.sub(r"^>\s?", "", text, flags=re.MULTILINE)
+    # Unordered list markers: *, -, + at line start
+    text = re.sub(r"^[ \t]*[*\-+]\s+", "", text, flags=re.MULTILINE)
+    # Ordered list markers: 1., 2., etc.
+    text = re.sub(r"^[ \t]*\d+\.\s+", "", text, flags=re.MULTILINE)
+    return text
 
 
 def split_words(text: str) -> list[str]:
@@ -47,7 +80,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
 
     full_text = " ".join(text_parts)
-    words = split_words(full_text)
+    words = split_words(clean_text(full_text))
 
     if not words:
         raise HTTPException(status_code=400, detail="No text found in PDF.")
@@ -57,7 +90,7 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 @app.post("/api/upload-text")
 async def upload_text(body: TextInput):
-    words = split_words(body.text)
+    words = split_words(clean_text(body.text))
     if not words:
         raise HTTPException(status_code=400, detail="No text provided.")
     return {"words": words, "count": len(words)}
