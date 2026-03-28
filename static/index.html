@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fast-Reader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1>Fast<span class="accent">Reader</span></h1>
+    <p class="subtitle">Train your brain to read faster</p>
+  </header>
+
+  <!-- Input Section -->
+  <section class="input-section" id="inputSection">
+    <div class="input-tabs">
+      <button class="tab-btn active" id="tabText" onclick="switchTab('text')">Paste Text</button>
+      <button class="tab-btn" id="tabPdf" onclick="switchTab('pdf')">Upload PDF</button>
+    </div>
+
+    <div class="tab-panel" id="panelText">
+      <textarea id="textInput" placeholder="Paste your text here..."></textarea>
+      <button class="btn-primary" onclick="loadText()">Load Text</button>
+    </div>
+
+    <div class="tab-panel hidden" id="panelPdf">
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('pdfInput').click()">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+        <p>Click to select a PDF file</p>
+        <p class="upload-hint" id="uploadFilename">No file selected</p>
+      </div>
+      <input type="file" id="pdfInput" accept=".pdf" style="display:none" onchange="loadPDF(this.files[0])" />
+      <button class="btn-primary" id="loadPdfBtn" onclick="submitPDF()" disabled>Load PDF</button>
+    </div>
+
+    <div class="error-msg hidden" id="errorMsg"></div>
+  </section>
+
+  <!-- Settings Bar -->
+  <section class="settings-bar">
+    <div class="setting-group">
+      <label for="wpmSlider">Speed</label>
+      <div class="slider-row">
+        <input type="range" id="wpmSlider" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+        <input type="number" id="wpmInput" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+        <span class="unit">WPM</span>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label for="fontSelect">Font</label>
+      <select id="fontSelect" onchange="updateFont()">
+        <option value="Georgia">Georgia</option>
+        <option value="Arial">Arial</option>
+        <option value="Verdana">Verdana</option>
+        <option value="'Courier New'">Courier New</option>
+        <option value="'Times New Roman'">Times New Roman</option>
+        <option value="'Trebuchet MS'">Trebuchet MS</option>
+        <option value="Roboto">Roboto</option>
+        <option value="'Open Sans'">Open Sans</option>
+      </select>
+    </div>
+
+    <div class="setting-group">
+      <label for="fontSizeSlider">Size</label>
+      <div class="slider-row">
+        <input type="range" id="fontSizeSlider" min="24" max="96" step="2" value="52" oninput="updateFontSize(this.value)" />
+        <input type="number" id="fontSizeInput" min="24" max="96" value="52" oninput="updateFontSize(this.value)" />
+        <span class="unit">px</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Word Display -->
+  <main class="reader-area">
+    <div class="focus-guide">
+      <div class="focus-line top"></div>
+      <div class="focus-dot"></div>
+      <div class="focus-line bottom"></div>
+    </div>
+
+    <div class="word-display" id="wordDisplay">
+      <span class="word-prefix" id="wordPrefix"></span>
+      <span class="word-focus" id="wordFocus">·</span>
+      <span class="word-suffix" id="wordSuffix"></span>
+    </div>
+
+    <div class="placeholder-text" id="placeholderText">Load text or a PDF to begin</div>
+  </main>
+
+  <!-- Progress Bar -->
+  <div class="progress-container" id="progressContainer" onclick="seekTo(event)">
+    <div class="progress-bar" id="progressBar"></div>
+    <div class="progress-tooltip" id="progressTooltip"></div>
+  </div>
+
+  <!-- Controls -->
+  <section class="controls">
+    <div class="counter" id="wordCounter">0 / 0</div>
+
+    <div class="control-buttons">
+      <button class="ctrl-btn" id="btnRestart" onclick="restart()" title="Restart" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+        </svg>
+      </button>
+
+      <button class="ctrl-btn play-btn" id="btnPlay" onclick="togglePlay()" title="Play / Pause" disabled>
+        <svg class="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <svg class="icon-pause hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+      </button>
+
+      <button class="ctrl-btn" id="btnStepBack" onclick="stepBack()" title="Previous word" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+        </svg>
+      </button>
+
+      <button class="ctrl-btn" id="btnStepFwd" onclick="stepForward()" title="Next word" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="time-estimate" id="timeEstimate"></div>
+  </section>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
