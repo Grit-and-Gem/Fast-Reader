@@ -132,19 +132,22 @@
     </div>
 
     <div class="audio-suggestions">
-      <p class="suggestion-title">Suggested focus music (progressive / ambient beats):</p>
-      <ul>
-        <li><strong>Brian Eno</strong> — Music for Airports (ambient)</li>
-        <li><strong>Tycho</strong> — Dive, Awake (progressive chillwave)</li>
-        <li><strong>Boards of Canada</strong> — Music Has the Right to Children</li>
-        <li><strong>Marconi Union</strong> — Weightless (scientifically calming)</li>
-        <li><strong>Emancipator</strong> — Soon It Will Be Cold Enough (downtempo)</li>
-        <li><strong>Odesza</strong> — In Return (progressive electronic)</li>
-        <li><strong>Kiasmos</strong> — Kiasmos (minimal techno / ambient)</li>
-        <li><strong>Carbon Based Lifeforms</strong> — Interloper (progressive ambient)</li>
-        <li><strong>Nils Frahm</strong> — Spaces (modern classical / ambient)</li>
-        <li><strong>Bonobo</strong> — Black Sands (progressive downtempo)</li>
-      </ul>
+      <a href="#" class="suggestions-toggle" id="suggestionsToggle" onclick="toggleSuggestions(event)">Show suggestions</a>
+      <div id="suggestionsContent" class="hidden">
+        <p class="suggestion-title">Suggested focus music (progressive / ambient beats):</p>
+        <ul>
+          <li><strong>Brian Eno</strong> — Music for Airports (ambient)</li>
+          <li><strong>Tycho</strong> — Dive, Awake (progressive chillwave)</li>
+          <li><strong>Boards of Canada</strong> — Music Has the Right to Children</li>
+          <li><strong>Marconi Union</strong> — Weightless (scientifically calming)</li>
+          <li><strong>Emancipator</strong> — Soon It Will Be Cold Enough (downtempo)</li>
+          <li><strong>Odesza</strong> — In Return (progressive electronic)</li>
+          <li><strong>Kiasmos</strong> — Kiasmos (minimal techno / ambient)</li>
+          <li><strong>Carbon Based Lifeforms</strong> — Interloper (progressive ambient)</li>
+          <li><strong>Nils Frahm</strong> — Spaces (modern classical / ambient)</li>
+          <li><strong>Bonobo</strong> — Black Sands (progressive downtempo)</li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -170,6 +173,22 @@
     <div class="progress-bar" id="progressBar"></div>
     <div class="progress-tooltip" id="progressTooltip"></div>
   </div>
+
+  <!-- PDF Navigation (hidden until PDF loaded) -->
+  <section class="pdf-nav hidden" id="pdfNav">
+    <div class="pdf-thumbnail-wrapper">
+      <img id="pdfThumbnail" class="pdf-thumbnail" src="" alt="Page preview" />
+    </div>
+    <div class="pdf-nav-controls">
+      <span class="pdf-page-label" id="pdfPageLabel">Page 1 / 1</span>
+      <div class="pdf-nav-buttons">
+        <button class="btn-sm" onclick="goToPrevPage()" title="Previous page">&#9664; Page</button>
+        <button class="btn-sm" onclick="goToNextPage()" title="Next page">Page &#9654;</button>
+        <button class="btn-sm" onclick="goToPrevPara()" title="Previous paragraph">&#9664; Para</button>
+        <button class="btn-sm" onclick="goToNextPara()" title="Next paragraph">Para &#9654;</button>
+      </div>
+    </div>
+  </section>
 
   <!-- Controls -->
   <section class="controls">
