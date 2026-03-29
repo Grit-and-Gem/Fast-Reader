@@ -41,7 +41,16 @@
         <p class="upload-hint" id="uploadFilename">No file selected</p>
       </div>
       <input type="file" id="pdfInput" accept=".pdf" style="display:none" onchange="loadPDF(this.files[0])" />
-      <button class="btn-primary" id="loadPdfBtn" onclick="submitPDF()" disabled>Load PDF</button>
+      <div class="pdf-upload-progress-wrap hidden" id="pdfProgressWrap">
+        <div class="pdf-upload-progress-bar">
+          <div class="pdf-upload-progress-fill" id="pdfProgressFill"></div>
+        </div>
+        <span class="pdf-upload-progress-label" id="pdfProgressLabel">Uploading…</span>
+      </div>
+      <div class="pdf-action-row">
+        <button class="btn-primary" id="loadPdfBtn" onclick="submitPDF()" disabled>Load PDF</button>
+        <button class="btn-secondary" id="btnResetPdf" onclick="resetPdf()" title="Clear uploaded file and reset reader">Reset</button>
+      </div>
     </div>
 
     <div class="error-msg hidden" id="errorMsg"></div>
@@ -117,7 +126,7 @@
   <section class="settings-bar font-size-bar">
     <div class="setting-group">
       <label for="fontSelect">Font</label>
-      <select id="fontSelect" onchange="updateFont()">
+      <select id="fontSelect" onchange="updateFont(this.value)">
         <option value="Georgia">Georgia</option>
         <option value="Arial">Arial</option>
         <option value="Verdana">Verdana</option>
@@ -233,6 +242,12 @@
     </div>
 
     <div class="placeholder-text" id="placeholderText">Load text or a PDF to begin</div>
+
+    <button class="fs-enter-btn" id="btnEnterFullscreen" onclick="enterFullscreen()" title="Full screen reading (F)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+      </svg>
+    </button>
   </main>
 
   <!-- Progress Bar -->
@@ -285,6 +300,148 @@
     <div class="pdf-zoom-content" onclick="event.stopPropagation()">
       <button class="btn-sm pdf-zoom-close" onclick="closePdfZoom()">Close</button>
       <img id="pdfZoomImage" class="pdf-zoom-image" src="" alt="Zoomed page" />
+    </div>
+  </div>
+
+  <!-- Fullscreen Reading Overlay -->
+  <div class="fs-overlay hidden" id="fsOverlay">
+
+    <!-- Top header: speed + font + music + exit -->
+    <div class="fs-header">
+
+      <!-- Speed -->
+      <div class="fs-speed-group" id="fsSpeedGroup">
+        <span class="fs-label">Speed</span>
+        <div class="slider-row">
+          <input type="range" id="fsWpmSlider" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+          <input type="number" id="fsWpmInput" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+          <span class="unit">WPM</span>
+        </div>
+      </div>
+      <span class="current-wpm-display hidden" id="fsCurrentWpmDisplay">300 WPM</span>
+
+      <!-- Font family -->
+      <div class="fs-font-group">
+        <span class="fs-label">Font</span>
+        <select id="fsFontSelect" onchange="updateFont(this.value)">
+          <option value="Georgia">Georgia</option>
+          <option value="Arial">Arial</option>
+          <option value="Verdana">Verdana</option>
+          <option value="'Courier New'">Courier New</option>
+          <option value="'Times New Roman'">Times New Roman</option>
+          <option value="'Trebuchet MS'">Trebuchet MS</option>
+          <option value="Roboto">Roboto</option>
+          <option value="'Open Sans'">Open Sans</option>
+        </select>
+      </div>
+
+      <!-- Font size -->
+      <div class="fs-font-group">
+        <span class="fs-label">Size</span>
+        <div class="slider-row">
+          <input type="range" id="fsFontSizeSlider" min="24" max="96" step="2" value="52" oninput="updateFontSize(this.value)" />
+          <input type="number" id="fsFontSizeInput" min="24" max="96" value="52" oninput="updateFontSize(this.value)" />
+          <span class="unit">px</span>
+        </div>
+      </div>
+
+      <!-- Music controls (always shown; file picker + player row) -->
+      <div class="fs-music" id="fsMusicControls">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" class="fs-music-icon">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+        </svg>
+        <button class="btn-sm fs-music-pick-btn" onclick="document.getElementById('fsAudioInput').click()">Choose MP3</button>
+        <input type="file" id="fsAudioInput" accept="audio/*" style="display:none" onchange="loadAudio(this.files[0])" />
+        <span class="fs-audio-filename" id="fsAudioFilename">No file</span>
+        <div class="fs-audio-player hidden" id="fsAudioPlayerRow">
+          <button class="ctrl-btn-sm" id="fsBtnAudioPlay" onclick="toggleAudio()" title="Play / Pause music">
+            <svg class="audio-icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg class="audio-icon-pause hidden" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="volume-icon">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+          </svg>
+          <input type="range" id="fsAudioVolume" min="0" max="1" step="0.05" value="0.5" oninput="setAudioVolume(this.value)" class="volume-slider fs-vol-slider" />
+        </div>
+      </div>
+
+      <button class="btn-sm fs-close-btn" onclick="exitFullscreen()" title="Exit full screen (Esc / F)">&#x2715; Exit</button>
+    </div>
+
+    <!-- Line preview -->
+    <div class="fs-line-preview" id="fsLinePreview">
+      <span class="fs-line-placeholder">—</span>
+    </div>
+
+    <!-- Centered word display -->
+    <div class="fs-word-area">
+
+      <!-- PDF page panel: left-center, only visible in PDF mode -->
+      <div class="fs-pdf-panel hidden" id="fsPdfPanel">
+        <img id="fsPdfThumbnail" class="fs-pdf-thumb" src="" alt="Page preview" onclick="togglePdfZoom()" title="Click to zoom" />
+        <div class="fs-pdf-info">
+          <span class="fs-pdf-label" id="fsPdfPageLabel">Page 1 / 1</span>
+          <div class="fs-pdf-nav-btns">
+            <button class="btn-sm fs-pdf-nav-btn" onclick="goToPrevPage()" title="Previous page">&#9664;</button>
+            <button class="btn-sm fs-pdf-nav-btn" onclick="goToNextPage()" title="Next page">&#9654;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="focus-guide">
+        <div class="focus-line top"></div>
+        <div class="focus-dot"></div>
+        <div class="focus-line bottom"></div>
+      </div>
+      <div class="word-display" id="fsWordDisplay">
+        <span class="word-prefix" id="fsWordPrefix"></span>
+        <span class="word-focus" id="fsWordFocus">·</span>
+        <span class="word-suffix" id="fsWordSuffix"></span>
+      </div>
+    </div>
+
+    <!-- Bottom controls -->
+    <div class="fs-bottom">
+      <div class="fs-progress-wrap">
+        <div class="progress-container" id="fsProgressContainer" onclick="seekTo(event)">
+          <div class="progress-bar" id="fsProgressBar"></div>
+        </div>
+      </div>
+      <div class="fs-controls-row">
+        <div class="counter" id="fsWordCounter">0 / 0</div>
+        <div class="control-buttons">
+          <button class="ctrl-btn" id="fsBtnRestart" onclick="restart()" title="Restart" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="fsBtnStepBack" onclick="stepBack()" title="Previous word" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn play-btn" id="fsBtnPlay" onclick="togglePlay()" title="Play / Pause" disabled>
+            <svg class="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg class="icon-pause hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="fsBtnStepFwd" onclick="stepForward()" title="Next word" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="controls-right">
+          <div class="time-estimate" id="fsTimeEstimate"></div>
+        </div>
+      </div>
     </div>
   </div>
 

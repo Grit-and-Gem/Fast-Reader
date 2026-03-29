@@ -33,7 +33,8 @@ let audioEl       = null;  // HTMLAudioElement
 let audioPlaying  = false;
 let audioObjectURL = null;
 
-// ── DOM refs ───────────────────────────────────────────────
+// Fullscreen line-preview context window (words on each side of current word)
+const FS_LINE_WINDOW = 8;
 const wordPrefix      = document.getElementById('wordPrefix');
 const wordFocus       = document.getElementById('wordFocus');
 const wordSuffix      = document.getElementById('wordSuffix');
@@ -60,6 +61,35 @@ const pdfZoomModal    = document.getElementById('pdfZoomModal');
 const pdfZoomImage    = document.getElementById('pdfZoomImage');
 const currentWpmDisplay = document.getElementById('currentWpmDisplay');
 
+// Fullscreen DOM refs
+const fsOverlay         = document.getElementById('fsOverlay');
+const fsWordPrefix      = document.getElementById('fsWordPrefix');
+const fsWordFocus       = document.getElementById('fsWordFocus');
+const fsWordSuffix      = document.getElementById('fsWordSuffix');
+const fsWordDisplay     = document.getElementById('fsWordDisplay');
+const fsProgressBar     = document.getElementById('fsProgressBar');
+const fsWordCounter     = document.getElementById('fsWordCounter');
+const fsTimeEstimate    = document.getElementById('fsTimeEstimate');
+const fsCurrentWpmDisplay = document.getElementById('fsCurrentWpmDisplay');
+const fsBtnPlay         = document.getElementById('fsBtnPlay');
+const fsBtnRestart      = document.getElementById('fsBtnRestart');
+const fsBtnStepBack     = document.getElementById('fsBtnStepBack');
+const fsBtnStepFwd      = document.getElementById('fsBtnStepFwd');
+const fsBtnIconPlay     = fsBtnPlay.querySelector('.icon-play');
+const fsBtnIconPause    = fsBtnPlay.querySelector('.icon-pause');
+const fsWpmSlider       = document.getElementById('fsWpmSlider');
+const fsWpmInput        = document.getElementById('fsWpmInput');
+const fsLinePreview     = document.getElementById('fsLinePreview');
+const fsFontSelect      = document.getElementById('fsFontSelect');
+const fsFontSizeSlider  = document.getElementById('fsFontSizeSlider');
+const fsFontSizeInput   = document.getElementById('fsFontSizeInput');
+const fsAudioPlayerRow  = document.getElementById('fsAudioPlayerRow');
+const fsAudioFilename   = document.getElementById('fsAudioFilename');
+const fsAudioVolume     = document.getElementById('fsAudioVolume');
+const fsPdfPanel        = document.getElementById('fsPdfPanel');
+const fsPdfThumbnail    = document.getElementById('fsPdfThumbnail');
+const fsPdfPageLabel    = document.getElementById('fsPdfPageLabel');
+
 // ── Optimal Recognition Point ──────────────────────────────
 function getORP(word) {
   const len = word.length;
@@ -81,6 +111,13 @@ function displayWord(word) {
   wordPrefix.textContent = pre;
   wordFocus.textContent  = focus;
   wordSuffix.textContent = suf;
+
+  // Mirror to fullscreen display
+  fsWordPrefix.textContent = pre;
+  fsWordFocus.textContent  = focus;
+  fsWordSuffix.textContent = suf;
+
+  updateLinePreview();
 }
 
 function getEffectiveWpm() {
@@ -101,25 +138,31 @@ function updateProgress() {
   const total = words.length;
   const pct   = total > 0 ? (currentIndex / total) * 100 : 0;
   progressBar.style.width = pct + '%';
+  fsProgressBar.style.width = pct + '%';
   wordCounter.textContent = `${currentIndex} / ${total}`;
+  fsWordCounter.textContent = `${currentIndex} / ${total}`;
 
   const currentWpm = getEffectiveWpm();
 
   // Update live WPM display
   if (variableSpeedEnabled) {
     currentWpmDisplay.textContent = Math.round(currentWpm) + ' WPM';
+    fsCurrentWpmDisplay.textContent = Math.round(currentWpm) + ' WPM';
   }
 
   // Remaining time estimate
   const remaining = total - currentIndex;
   const mins = remaining / currentWpm;
+  let timeText;
   if (mins < 1) {
-    timeEstimate.textContent = `< 1 min left`;
+    timeText = `< 1 min left`;
   } else {
     const m = Math.floor(mins);
     const s = Math.round((mins - m) * 60);
-    timeEstimate.textContent = s > 0 ? `~${m}m ${s}s left` : `~${m}m left`;
+    timeText = s > 0 ? `~${m}m ${s}s left` : `~${m}m left`;
   }
+  timeEstimate.textContent = timeText;
+  fsTimeEstimate.textContent = timeText;
 
   updatePagePreview();
 }
@@ -237,9 +280,13 @@ function updatePlayButton() {
   if (isPlaying) {
     iconPlay.classList.add('hidden');
     iconPause.classList.remove('hidden');
+    fsBtnIconPlay.classList.add('hidden');
+    fsBtnIconPause.classList.remove('hidden');
   } else {
     iconPlay.classList.remove('hidden');
     iconPause.classList.add('hidden');
+    fsBtnIconPlay.classList.remove('hidden');
+    fsBtnIconPause.classList.add('hidden');
   }
 }
 
@@ -268,25 +315,33 @@ function updateWPM(value) {
   wpm = val;
   wpmSlider.value = val;
   wpmInput.value  = val;
+  fsWpmSlider.value = val;
+  fsWpmInput.value  = val;
   updateProgress();
 }
 
-function updateFont() {
-  fontFamily = document.getElementById('fontSelect').value;
+function updateFont(value) {
+  fontFamily = value;
+  document.getElementById('fontSelect').value = value;
+  fsFontSelect.value = value;
   applyFontStyle();
 }
 
 function updateFontSize(value) {
   const val = Math.max(24, Math.min(96, parseInt(value) || 52));
   fontSize = val;
-  fontSizeSlider.value = val;
-  fontSizeInput.value  = val;
+  fontSizeSlider.value   = val;
+  fontSizeInput.value    = val;
+  fsFontSizeSlider.value = val;
+  fsFontSizeInput.value  = val;
   applyFontStyle();
 }
 
 function applyFontStyle() {
-  wordDisplay.style.fontFamily = fontFamily;
-  wordDisplay.style.fontSize   = fontSize + 'px';
+  wordDisplay.style.fontFamily   = fontFamily;
+  wordDisplay.style.fontSize     = fontSize + 'px';
+  fsWordDisplay.style.fontFamily = fontFamily;
+  fsWordDisplay.style.fontSize   = fontSize + 'px';
 }
 
 // ── Paragraph gap ──────────────────────────────────────────
@@ -323,7 +378,14 @@ function toggleVariableSpeed(enabled) {
   wpmSlider.disabled = enabled;
   wpmInput.disabled  = enabled;
 
+  // Sync fullscreen fixed-speed controls
+  const fsSpeedGroup = document.getElementById('fsSpeedGroup');
+  fsSpeedGroup.classList.toggle('setting-group--disabled', enabled);
+  fsWpmSlider.disabled = enabled;
+  fsWpmInput.disabled  = enabled;
+
   currentWpmDisplay.classList.toggle('hidden', !enabled);
+  fsCurrentWpmDisplay.classList.toggle('hidden', !enabled);
 
   // Reset variable speed timing
   variableElapsed = 0;
@@ -332,6 +394,7 @@ function toggleVariableSpeed(enabled) {
 
   if (enabled) {
     currentWpmDisplay.textContent = Math.round(effectiveWpm) + ' WPM';
+    fsCurrentWpmDisplay.textContent = Math.round(effectiveWpm) + ' WPM';
   }
 }
 
@@ -353,6 +416,110 @@ function updateRampRate(value) {
   document.getElementById('rampRateInput').value = rampRate;
 }
 
+// ── Fullscreen mode ─────────────────────────────────────────
+function updateLinePreview() {
+  if (words.length === 0) {
+    fsLinePreview.innerHTML = '<span class="fs-line-placeholder">—</span>';
+    return;
+  }
+
+  const WINDOW = FS_LINE_WINDOW; // real words on each side
+  const displayIdx = Math.max(0, currentIndex - 1);
+
+  // Find start: go back WINDOW real words
+  let start = displayIdx;
+  let count = 0;
+  while (start > 0 && count < WINDOW) {
+    start--;
+    if (words[start] !== '__PARA__') count++;
+  }
+
+  // Find end: go forward WINDOW real words
+  let end = displayIdx;
+  count = 0;
+  while (end < words.length - 1 && count < WINDOW) {
+    end++;
+    if (words[end] !== '__PARA__') count++;
+  }
+
+  // Build span elements
+  fsLinePreview.innerHTML = '';
+  for (let i = start; i <= end; i++) {
+    if (words[i] === '__PARA__') continue;
+    const span = document.createElement('span');
+    span.className = 'fs-line-word' + (i === displayIdx ? ' fs-current-word' : '');
+    span.textContent = words[i];
+    fsLinePreview.appendChild(span);
+  }
+}
+
+function enterFullscreen() {
+  // Sync WPM sliders
+  fsWpmSlider.value = wpm;
+  fsWpmInput.value  = wpm;
+
+  // Sync variable speed state in header
+  const fsSpeedGroup = document.getElementById('fsSpeedGroup');
+  fsSpeedGroup.classList.toggle('setting-group--disabled', variableSpeedEnabled);
+  fsWpmSlider.disabled = variableSpeedEnabled;
+  fsWpmInput.disabled  = variableSpeedEnabled;
+  fsCurrentWpmDisplay.classList.toggle('hidden', !variableSpeedEnabled);
+  if (variableSpeedEnabled) {
+    fsCurrentWpmDisplay.textContent = Math.round(getEffectiveWpm()) + ' WPM';
+  }
+
+  // Sync font controls
+  fsFontSelect.value      = document.getElementById('fontSelect').value;
+  fsFontSizeSlider.value  = fontSize;
+  fsFontSizeInput.value   = fontSize;
+
+  // Sync audio: volume slider; show player row only if audio loaded
+  if (audioEl) {
+    fsAudioVolume.value = document.getElementById('audioVolume').value;
+    fsAudioPlayerRow.classList.remove('hidden');
+    fsAudioFilename.textContent =
+      document.getElementById('audioFilename').textContent;
+    updateAudioButton();
+  }
+
+  // Sync font styles
+  applyFontStyle();
+
+  // Show / hide PDF panel and sync initial thumbnail
+  if (isPdfMode && pages.length > 0) {
+    fsPdfThumbnail.src = pages[currentPage].thumbnail;
+    fsPdfPageLabel.textContent = `Page ${currentPage + 1} / ${pages.length}`;
+    fsPdfPanel.classList.remove('hidden');
+  } else {
+    fsPdfPanel.classList.add('hidden');
+  }
+
+  // Update line preview
+  updateLinePreview();
+
+  // Show the overlay
+  fsOverlay.classList.remove('hidden');
+
+  // Request native fullscreen when supported
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function exitFullscreen() {
+  fsOverlay.classList.add('hidden');
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+// Exit fullscreen when browser native fullscreen is exited (e.g. Esc key)
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    fsOverlay.classList.add('hidden');
+  }
+});
+
 // ── Word loading helpers ───────────────────────────────────
 function onWordsLoaded(data) {
   words        = data.words;
@@ -368,11 +535,13 @@ function onWordsLoaded(data) {
     isPdfMode = true;
     currentPage = 0;
     pdfNav.classList.remove('hidden');
+    fsPdfPanel.classList.remove('hidden');
   } else {
     pages = [];
     isPdfMode = false;
     currentPage = 0;
     pdfNav.classList.add('hidden');
+    fsPdfPanel.classList.add('hidden');
   }
 
   // Show first word paused
@@ -385,6 +554,10 @@ function onWordsLoaded(data) {
   btnRestart.disabled  = false;
   btnStepBack.disabled = false;
   btnStepFwd.disabled  = false;
+  fsBtnPlay.disabled     = false;
+  fsBtnRestart.disabled  = false;
+  fsBtnStepBack.disabled = false;
+  fsBtnStepFwd.disabled  = false;
 
   showError(null);
 }
@@ -437,17 +610,134 @@ function loadPDF(file) {
 async function submitPDF() {
   if (!selectedFile) { showError('Please select a PDF file.'); return; }
 
+  const progressWrap  = document.getElementById('pdfProgressWrap');
+  const progressFill  = document.getElementById('pdfProgressFill');
+  const progressLabel = document.getElementById('pdfProgressLabel');
+  const loadBtn       = document.getElementById('loadPdfBtn');
+
+  // Show progress bar, disable buttons during upload
+  progressWrap.classList.remove('hidden');
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Uploading…';
+  loadBtn.disabled = true;
+
   const formData = new FormData();
   formData.append('file', selectedFile);
 
   try {
-    const res  = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) { showError(data.detail || 'Failed to parse PDF.'); return; }
-    onWordsLoaded(data);
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload-pdf');
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          // Upload phase: 0→80%
+          const pct = Math.round((e.loaded / e.total) * 80);
+          progressFill.style.width = pct + '%';
+          progressLabel.textContent = `Uploading… ${pct}%`;
+        }
+      });
+
+      xhr.upload.addEventListener('load', () => {
+        // Upload done; server is processing the PDF
+        progressFill.style.width = '85%';
+        progressLabel.textContent = 'Processing…';
+      });
+
+      xhr.addEventListener('load', () => {
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Done';
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            onWordsLoaded(data);
+            resolve();
+          } catch (e) {
+            reject(new Error('Invalid server response.'));
+          }
+        } else {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            reject(new Error(data.detail || 'Failed to parse PDF.'));
+          } catch (_) {
+            reject(new Error('Failed to parse PDF.'));
+          }
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('Network error.')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled.')));
+
+      xhr.send(formData);
+    });
   } catch (e) {
-    showError('Network error: ' + e.message);
+    showError(e.message);
+    progressWrap.classList.add('hidden');
+    loadBtn.disabled = false;
   }
+}
+
+function resetPdf() {
+  // Clear file selection
+  selectedFile = null;
+  const pdfInput = document.getElementById('pdfInput');
+  pdfInput.value = '';
+  document.getElementById('uploadFilename').textContent = 'No file selected';
+  document.getElementById('loadPdfBtn').disabled = true;
+
+  // Hide and reset progress bar
+  const progressWrap = document.getElementById('pdfProgressWrap');
+  progressWrap.classList.add('hidden');
+  document.getElementById('pdfProgressFill').style.width = '0%';
+
+  // Reset reader state
+  words        = [];
+  currentIndex = 0;
+  pages        = [];
+  isPdfMode    = false;
+  currentPage  = 0;
+  isPlaying    = false;
+  if (timerId) { clearTimeout(timerId); timerId = null; }
+
+  // Hide PDF nav
+  pdfNav.classList.add('hidden');
+  fsPdfPanel.classList.add('hidden');
+
+  // Reset word display
+  wordDisplay.style.display = 'none';
+  placeholderText.style.display = '';
+  wordFocus.textContent = '·';
+  wordPrefix.textContent = '';
+  wordSuffix.textContent = '';
+
+  // Reset progress bar
+  progressBar.style.width = '0%';
+  fsProgressBar.style.width = '0%';
+
+  // Disable controls
+  btnPlay.disabled     = true;
+  btnRestart.disabled  = true;
+  btnStepBack.disabled = true;
+  btnStepFwd.disabled  = true;
+  fsBtnPlay.disabled    = true;
+  fsBtnRestart.disabled = true;
+  fsBtnStepBack.disabled = true;
+  fsBtnStepFwd.disabled  = true;
+
+  // Reset counters
+  wordCounter.textContent   = '0 / 0';
+  fsWordCounter.textContent = '0 / 0';
+  timeEstimate.textContent   = '';
+  fsTimeEstimate.textContent = '';
+
+  // Update play icon
+  iconPlay.classList.remove('hidden');
+  iconPause.classList.add('hidden');
+  fsBtnIconPlay.classList.remove('hidden');
+  fsBtnIconPause.classList.add('hidden');
+
+  // Clear error message
+  errorMsg.classList.add('hidden');
 }
 
 // ── Drag-and-drop for PDF area ─────────────────────────────
@@ -513,7 +803,19 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       if (isPdfMode) goToPrevPage(); else goToPrevPara();
       break;
+    case 'f':
+    case 'F':
+      e.preventDefault();
+      if (fsOverlay.classList.contains('hidden')) {
+        enterFullscreen();
+      } else {
+        exitFullscreen();
+      }
+      break;
     case 'Escape':
+      if (!fsOverlay.classList.contains('hidden')) {
+        exitFullscreen();
+      }
       closePdfZoom();
       break;
   }
@@ -541,8 +843,16 @@ function loadAudio(file) {
     }
   });
 
+  // Sync main audio section
   document.getElementById('audioFilename').textContent = file.name;
   document.getElementById('audioPlayerRow').classList.remove('hidden');
+
+  // Sync fullscreen audio section
+  fsAudioFilename.textContent = file.name;
+  fsAudioPlayerRow.classList.remove('hidden');
+  // Keep volume slider in sync
+  fsAudioVolume.value = document.getElementById('audioVolume').value;
+
   audioPlaying = false;
   updateAudioButton();
 }
@@ -570,10 +880,25 @@ function updateAudioButton() {
     iconPlay.classList.remove('hidden');
     iconPause.classList.add('hidden');
   }
+
+  // Sync fullscreen audio button
+  const fsBtn = document.getElementById('fsBtnAudioPlay');
+  const fsIconPlay  = fsBtn.querySelector('.audio-icon-play');
+  const fsIconPause = fsBtn.querySelector('.audio-icon-pause');
+  if (audioPlaying) {
+    fsIconPlay.classList.add('hidden');
+    fsIconPause.classList.remove('hidden');
+  } else {
+    fsIconPlay.classList.remove('hidden');
+    fsIconPause.classList.add('hidden');
+  }
 }
 
 function setAudioVolume(value) {
   if (audioEl) audioEl.volume = parseFloat(value);
+  // Keep both volume sliders in sync
+  document.getElementById('audioVolume').value = value;
+  fsAudioVolume.value = value;
 }
 
 function setAudioLoop(enabled) {
@@ -600,8 +925,13 @@ function updatePagePreview() {
   if (pageIdx !== currentPage) {
     currentPage = pageIdx;
   }
+  const label = `Page ${currentPage + 1} / ${pages.length}`;
   pdfThumbnail.src = pages[currentPage].thumbnail;
-  pdfPageLabel.textContent = `Page ${currentPage + 1} / ${pages.length}`;
+  pdfPageLabel.textContent = label;
+
+  // Mirror to fullscreen PDF panel
+  fsPdfThumbnail.src = pages[currentPage].thumbnail;
+  fsPdfPageLabel.textContent = label;
 
   // Update zoom image if modal is open
   if (!pdfZoomModal.classList.contains('hidden')) {

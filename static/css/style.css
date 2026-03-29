@@ -171,6 +171,60 @@ textarea#textInput::placeholder {
   cursor: not-allowed;
 }
 
+/* Secondary (outline) button — used for Reset */
+.btn-secondary {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(108, 99, 255, 0.07);
+}
+
+/* Row that holds Load PDF + Reset side-by-side */
+.pdf-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Upload progress bar */
+.pdf-upload-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pdf-upload-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pdf-upload-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.pdf-upload-progress-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .error-msg {
   background: rgba(231, 76, 60, 0.12);
   border: 1px solid rgba(231, 76, 60, 0.4);
@@ -822,6 +876,278 @@ select:focus {
 }
 
 .hidden { display: none !important; }
+
+/* ── Fullscreen Overlay ── */
+.fs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.fs-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding: 10px 20px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.fs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fs-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.fs-speed-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fs-font-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.fs-font-group select {
+  width: auto;
+  min-width: 110px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+}
+
+.fs-font-group .slider-row {
+  gap: 6px;
+}
+
+.fs-font-group input[type="range"] {
+  width: 80px;
+  flex: 0 0 80px;
+}
+
+.fs-font-group input[type="number"] {
+  width: 52px;
+}
+
+.fs-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fs-music {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.fs-music-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.fs-music-pick-btn {
+  flex-shrink: 0;
+}
+
+.fs-audio-filename {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fs-audio-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fs-vol-slider {
+  width: 70px !important;
+  flex: 0 0 70px !important;
+}
+
+.fs-close-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Line preview — subtle, unobtrusive */
+.fs-line-preview {
+  padding: 5px 24px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid rgba(42, 42, 80, 0.6);
+  font-size: 0.85rem;
+  color: rgba(122, 122, 154, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: center;
+  flex-shrink: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  letter-spacing: 0.02em;
+}
+
+.fs-line-word {
+  display: inline-block;
+  transition: color 0.15s, opacity 0.15s;
+  opacity: 0.45;
+}
+
+.fs-line-word.fs-current-word {
+  color: var(--text-muted);
+  opacity: 0.9;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgba(108, 99, 255, 0.45);
+  text-underline-offset: 3px;
+}
+
+.fs-line-placeholder {
+  color: rgba(122, 122, 154, 0.3);
+}
+
+/* Centered word area */
+.fs-word-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Bottom controls */
+.fs-bottom {
+  flex-shrink: 0;
+  padding: 10px 20px 18px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Progress bar wrapper: 90% wide, centered */
+.fs-progress-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.fs-progress-wrap .progress-container {
+  width: 90%;
+}
+
+.fs-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Enter fullscreen button inside reader-area */
+.fs-enter-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  z-index: 3;
+}
+
+.fs-enter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(108, 99, 255, 0.1);
+}
+
+/* PDF page panel in fullscreen — absolute, left-center */
+.fs-pdf-panel {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+.fs-pdf-panel:hover {
+  opacity: 1;
+}
+
+.fs-pdf-thumb {
+  width: 120px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+  cursor: zoom-in;
+  background: var(--bg-card);
+}
+
+.fs-pdf-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.fs-pdf-label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fs-pdf-nav-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.fs-pdf-nav-btn {
+  padding: 3px 8px;
+  font-size: 0.7rem;
+}
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
