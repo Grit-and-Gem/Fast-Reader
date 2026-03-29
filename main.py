@@ -56,6 +56,42 @@ def clean_text(text: str) -> str:
     return text
 
 
+def _smart_join_spans(parts: list[str]) -> str:
+    """Join text spans within one PDF line, inserting a space where neither
+    side already provides one.  This prevents words from merging when PDF
+    spans don't carry trailing/leading space characters."""
+    result = ""
+    for part in parts:
+        if not result:
+            result = part
+        elif result.endswith((" ", "\t")) or part.startswith((" ", "\t")):
+            result += part
+        else:
+            result += " " + part
+    return result
+
+
+def _join_line_texts(line_texts: list[str]) -> str:
+    """Join the assembled lines of a block, handling end-of-line hyphens.
+
+    If a line ends with '-' (soft hyphen break), the next line is appended
+    directly so that 'hyphen-' + 'ation' becomes 'hyphen-ation' rather than
+    'hyphen- ation'.  For all other line joins a space is ensured.
+    """
+    result = ""
+    for line in line_texts:
+        if not result:
+            result = line
+        elif result.endswith("-"):
+            # Preserve the hyphen and join without an extra space.
+            result = result + line
+        elif result.endswith((" ", "\t")) or line.startswith((" ", "\t")):
+            result += line
+        else:
+            result += " " + line
+    return result
+
+
 def extract_text_without_footnotes(page) -> str:
     """Extract text from a PDF page, filtering out footnotes.
 
@@ -110,10 +146,10 @@ def extract_text_without_footnotes(page) -> str:
                 span_texts.append(span_text)
 
             if span_texts:
-                line_texts.append("".join(span_texts))
+                line_texts.append(_smart_join_spans(span_texts))
 
         if line_texts:
-            result_lines.append(" ".join(line_texts))
+            result_lines.append(_join_line_texts(line_texts))
 
     return "\n\n".join(result_lines)
 
