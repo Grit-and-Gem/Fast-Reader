@@ -316,7 +316,13 @@ function toggleVariableSpeed(enabled) {
   variableSpeedEnabled = enabled;
   document.getElementById('variableSpeedLabel').textContent = enabled ? 'On' : 'Off';
   document.getElementById('variableSpeedSettings').classList.toggle('hidden', !enabled);
-  document.getElementById('wpmSettingGroup').classList.toggle('hidden', enabled);
+
+  // Disable (not hide) the fixed-speed controls when variable speed is active
+  const wpmGroup = document.getElementById('wpmSettingGroup');
+  wpmGroup.classList.toggle('setting-group--disabled', enabled);
+  wpmSlider.disabled = enabled;
+  wpmInput.disabled  = enabled;
+
   currentWpmDisplay.classList.toggle('hidden', !enabled);
 
   // Reset variable speed timing
