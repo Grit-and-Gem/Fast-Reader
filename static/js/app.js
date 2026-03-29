@@ -80,6 +80,12 @@ const fsBtnIconPause    = fsBtnPlay.querySelector('.icon-pause');
 const fsWpmSlider       = document.getElementById('fsWpmSlider');
 const fsWpmInput        = document.getElementById('fsWpmInput');
 const fsLinePreview     = document.getElementById('fsLinePreview');
+const fsFontSelect      = document.getElementById('fsFontSelect');
+const fsFontSizeSlider  = document.getElementById('fsFontSizeSlider');
+const fsFontSizeInput   = document.getElementById('fsFontSizeInput');
+const fsAudioPlayerRow  = document.getElementById('fsAudioPlayerRow');
+const fsAudioFilename   = document.getElementById('fsAudioFilename');
+const fsAudioVolume     = document.getElementById('fsAudioVolume');
 
 // ── Optimal Recognition Point ──────────────────────────────
 function getORP(word) {
@@ -311,16 +317,20 @@ function updateWPM(value) {
   updateProgress();
 }
 
-function updateFont() {
-  fontFamily = document.getElementById('fontSelect').value;
+function updateFont(value) {
+  fontFamily = value;
+  document.getElementById('fontSelect').value = value;
+  fsFontSelect.value = value;
   applyFontStyle();
 }
 
 function updateFontSize(value) {
   const val = Math.max(24, Math.min(96, parseInt(value) || 52));
   fontSize = val;
-  fontSizeSlider.value = val;
-  fontSizeInput.value  = val;
+  fontSizeSlider.value   = val;
+  fontSizeInput.value    = val;
+  fsFontSizeSlider.value = val;
+  fsFontSizeInput.value  = val;
   applyFontStyle();
 }
 
@@ -455,15 +465,21 @@ function enterFullscreen() {
     fsCurrentWpmDisplay.textContent = Math.round(getEffectiveWpm()) + ' WPM';
   }
 
-  // Sync audio volume and show controls if audio is loaded
+  // Sync font controls
+  fsFontSelect.value      = document.getElementById('fontSelect').value;
+  fsFontSizeSlider.value  = fontSize;
+  fsFontSizeInput.value   = fontSize;
+
+  // Sync audio: volume slider; show player row only if audio loaded
   if (audioEl) {
-    document.getElementById('fsAudioVolume').value =
-      document.getElementById('audioVolume').value;
-    document.getElementById('fsMusicControls').classList.remove('hidden');
+    fsAudioVolume.value = document.getElementById('audioVolume').value;
+    fsAudioPlayerRow.classList.remove('hidden');
+    fsAudioFilename.textContent =
+      document.getElementById('audioFilename').textContent;
     updateAudioButton();
   }
 
-  // Sync font
+  // Sync font styles
   applyFontStyle();
 
   // Update line preview
@@ -696,9 +712,16 @@ function loadAudio(file) {
     }
   });
 
+  // Sync main audio section
   document.getElementById('audioFilename').textContent = file.name;
   document.getElementById('audioPlayerRow').classList.remove('hidden');
-  document.getElementById('fsMusicControls').classList.remove('hidden');
+
+  // Sync fullscreen audio section
+  fsAudioFilename.textContent = file.name;
+  fsAudioPlayerRow.classList.remove('hidden');
+  // Keep volume slider in sync
+  fsAudioVolume.value = document.getElementById('audioVolume').value;
+
   audioPlaying = false;
   updateAudioButton();
 }
@@ -742,6 +765,9 @@ function updateAudioButton() {
 
 function setAudioVolume(value) {
   if (audioEl) audioEl.volume = parseFloat(value);
+  // Keep both volume sliders in sync
+  document.getElementById('audioVolume').value = value;
+  fsAudioVolume.value = value;
 }
 
 function setAudioLoop(enabled) {

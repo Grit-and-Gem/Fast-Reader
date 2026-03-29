@@ -117,7 +117,7 @@
   <section class="settings-bar font-size-bar">
     <div class="setting-group">
       <label for="fontSelect">Font</label>
-      <select id="fontSelect" onchange="updateFont()">
+      <select id="fontSelect" onchange="updateFont(this.value)">
         <option value="Georgia">Georgia</option>
         <option value="Arial">Arial</option>
         <option value="Verdana">Verdana</option>
@@ -297,37 +297,70 @@
   <!-- Fullscreen Reading Overlay -->
   <div class="fs-overlay hidden" id="fsOverlay">
 
-    <!-- Top header: speed + music + exit -->
+    <!-- Top header: speed + font + music + exit -->
     <div class="fs-header">
-      <div class="fs-header-left">
-        <div class="fs-speed-group" id="fsSpeedGroup">
-          <span class="fs-label">Speed</span>
-          <div class="slider-row">
-            <input type="range" id="fsWpmSlider" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
-            <input type="number" id="fsWpmInput" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
-            <span class="unit">WPM</span>
-          </div>
+
+      <!-- Speed -->
+      <div class="fs-speed-group" id="fsSpeedGroup">
+        <span class="fs-label">Speed</span>
+        <div class="slider-row">
+          <input type="range" id="fsWpmSlider" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+          <input type="number" id="fsWpmInput" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+          <span class="unit">WPM</span>
         </div>
-        <span class="current-wpm-display hidden" id="fsCurrentWpmDisplay">300 WPM</span>
+      </div>
+      <span class="current-wpm-display hidden" id="fsCurrentWpmDisplay">300 WPM</span>
+
+      <!-- Font family -->
+      <div class="fs-font-group">
+        <span class="fs-label">Font</span>
+        <select id="fsFontSelect" onchange="updateFont(this.value)">
+          <option value="Georgia">Georgia</option>
+          <option value="Arial">Arial</option>
+          <option value="Verdana">Verdana</option>
+          <option value="'Courier New'">Courier New</option>
+          <option value="'Times New Roman'">Times New Roman</option>
+          <option value="'Trebuchet MS'">Trebuchet MS</option>
+          <option value="Roboto">Roboto</option>
+          <option value="'Open Sans'">Open Sans</option>
+        </select>
       </div>
 
-      <div class="fs-header-right">
-        <div class="fs-music hidden" id="fsMusicControls">
+      <!-- Font size -->
+      <div class="fs-font-group">
+        <span class="fs-label">Size</span>
+        <div class="slider-row">
+          <input type="range" id="fsFontSizeSlider" min="24" max="96" step="2" value="52" oninput="updateFontSize(this.value)" />
+          <input type="number" id="fsFontSizeInput" min="24" max="96" value="52" oninput="updateFontSize(this.value)" />
+          <span class="unit">px</span>
+        </div>
+      </div>
+
+      <!-- Music controls (always shown; file picker + player row) -->
+      <div class="fs-music" id="fsMusicControls">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" class="fs-music-icon">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+        </svg>
+        <button class="btn-sm fs-music-pick-btn" onclick="document.getElementById('fsAudioInput').click()">Choose MP3</button>
+        <input type="file" id="fsAudioInput" accept="audio/*" style="display:none" onchange="loadAudio(this.files[0])" />
+        <span class="fs-audio-filename" id="fsAudioFilename">No file</span>
+        <div class="fs-audio-player hidden" id="fsAudioPlayerRow">
           <button class="ctrl-btn-sm" id="fsBtnAudioPlay" onclick="toggleAudio()" title="Play / Pause music">
-            <svg class="audio-icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <svg class="audio-icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
             </svg>
-            <svg class="audio-icon-pause hidden" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <svg class="audio-icon-pause hidden" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
             </svg>
           </button>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="volume-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="volume-icon">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
           </svg>
-          <input type="range" id="fsAudioVolume" min="0" max="1" step="0.05" value="0.5" oninput="setAudioVolume(this.value)" class="volume-slider" />
+          <input type="range" id="fsAudioVolume" min="0" max="1" step="0.05" value="0.5" oninput="setAudioVolume(this.value)" class="volume-slider fs-vol-slider" />
         </div>
-        <button class="btn-sm fs-close-btn" onclick="exitFullscreen()" title="Exit full screen (Esc / F)">&#x2715; Exit</button>
       </div>
+
+      <button class="btn-sm fs-close-btn" onclick="exitFullscreen()" title="Exit full screen (Esc / F)">&#x2715; Exit</button>
     </div>
 
     <!-- Line preview -->
@@ -351,8 +384,10 @@
 
     <!-- Bottom controls -->
     <div class="fs-bottom">
-      <div class="progress-container" id="fsProgressContainer" onclick="seekTo(event)">
-        <div class="progress-bar" id="fsProgressBar"></div>
+      <div class="fs-progress-wrap">
+        <div class="progress-container" id="fsProgressContainer" onclick="seekTo(event)">
+          <div class="progress-bar" id="fsProgressBar"></div>
+        </div>
       </div>
       <div class="fs-controls-row">
         <div class="counter" id="fsWordCounter">0 / 0</div>
