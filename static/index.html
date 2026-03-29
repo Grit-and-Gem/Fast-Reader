@@ -49,13 +49,24 @@
 
   <!-- Settings Bar -->
   <section class="settings-bar">
-    <div class="setting-group">
+    <!-- Fixed speed -->
+    <div class="setting-group" id="wpmSettingGroup">
       <label for="wpmSlider">Speed</label>
       <div class="slider-row">
         <input type="range" id="wpmSlider" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
         <input type="number" id="wpmInput" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
         <span class="unit">WPM</span>
       </div>
+    </div>
+
+    <!-- Variable speed toggle -->
+    <div class="setting-group">
+      <label>Variable Speed</label>
+      <label class="toggle">
+        <input type="checkbox" id="variableSpeedToggle" onchange="toggleVariableSpeed(this.checked)" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="variableSpeedLabel">Off</span>
+      </label>
     </div>
 
     <div class="setting-group">
@@ -88,6 +99,40 @@
         <span class="toggle-slider"></span>
         <span class="toggle-label" id="paraGapLabel">On</span>
       </label>
+      <div class="slider-row" id="paraGapSliderRow">
+        <input type="range" id="paraGapSlider" min="1" max="10" step="0.5" value="3" oninput="updateParaGapMultiplier(this.value)" />
+        <span class="para-gap-value" id="paraGapValue">3x</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Variable Speed Settings (hidden by default) -->
+  <section class="settings-bar variable-speed-bar hidden" id="variableSpeedSettings">
+    <div class="setting-group">
+      <label for="minWpmSlider">Min WPM</label>
+      <div class="slider-row">
+        <input type="range" id="minWpmSlider" min="50" max="1000" step="10" value="200" oninput="updateMinWpm(this.value)" />
+        <input type="number" id="minWpmInput" min="50" max="1000" step="10" value="200" oninput="updateMinWpm(this.value)" />
+        <span class="unit">WPM</span>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label for="maxWpmSlider">Max WPM</label>
+      <div class="slider-row">
+        <input type="range" id="maxWpmSlider" min="100" max="1200" step="10" value="600" oninput="updateMaxWpm(this.value)" />
+        <input type="number" id="maxWpmInput" min="100" max="1200" step="10" value="600" oninput="updateMaxWpm(this.value)" />
+        <span class="unit">WPM</span>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label for="rampRateSlider">Ramp Rate</label>
+      <div class="slider-row">
+        <input type="range" id="rampRateSlider" min="5" max="200" step="5" value="50" oninput="updateRampRate(this.value)" />
+        <input type="number" id="rampRateInput" min="5" max="200" step="5" value="50" oninput="updateRampRate(this.value)" />
+        <span class="unit">WPM/min</span>
+      </div>
     </div>
   </section>
 
@@ -151,6 +196,25 @@
     </div>
   </section>
 
+  <!-- PDF Navigation (hidden until PDF loaded) — placed BEFORE reader area -->
+  <section class="pdf-nav hidden" id="pdfNav">
+    <div class="pdf-thumbnail-wrapper">
+      <img id="pdfThumbnail" class="pdf-thumbnail" src="" alt="Page preview" />
+    </div>
+    <div class="pdf-nav-controls">
+      <div class="pdf-page-header">
+        <span class="pdf-page-label" id="pdfPageLabel">Page 1 / 1</span>
+        <button class="btn-sm" id="btnPdfZoom" onclick="togglePdfZoom()" title="Zoom page">Zoom</button>
+      </div>
+      <div class="pdf-nav-buttons">
+        <button class="btn-sm" onclick="goToPrevPage()" title="Previous page">&#9664; Page</button>
+        <button class="btn-sm" onclick="goToNextPage()" title="Next page">Page &#9654;</button>
+        <button class="btn-sm" onclick="goToPrevPara()" title="Previous paragraph">&#9664; Para</button>
+        <button class="btn-sm" onclick="goToNextPara()" title="Next paragraph">Para &#9654;</button>
+      </div>
+    </div>
+  </section>
+
   <!-- Word Display -->
   <main class="reader-area">
     <div class="focus-guide">
@@ -173,22 +237,6 @@
     <div class="progress-bar" id="progressBar"></div>
     <div class="progress-tooltip" id="progressTooltip"></div>
   </div>
-
-  <!-- PDF Navigation (hidden until PDF loaded) -->
-  <section class="pdf-nav hidden" id="pdfNav">
-    <div class="pdf-thumbnail-wrapper">
-      <img id="pdfThumbnail" class="pdf-thumbnail" src="" alt="Page preview" />
-    </div>
-    <div class="pdf-nav-controls">
-      <span class="pdf-page-label" id="pdfPageLabel">Page 1 / 1</span>
-      <div class="pdf-nav-buttons">
-        <button class="btn-sm" onclick="goToPrevPage()" title="Previous page">&#9664; Page</button>
-        <button class="btn-sm" onclick="goToNextPage()" title="Next page">Page &#9654;</button>
-        <button class="btn-sm" onclick="goToPrevPara()" title="Previous paragraph">&#9664; Para</button>
-        <button class="btn-sm" onclick="goToNextPara()" title="Next paragraph">Para &#9654;</button>
-      </div>
-    </div>
-  </section>
 
   <!-- Controls -->
   <section class="controls">
@@ -223,8 +271,19 @@
       </button>
     </div>
 
-    <div class="time-estimate" id="timeEstimate"></div>
+    <div class="controls-right">
+      <span class="current-wpm-display hidden" id="currentWpmDisplay">300 WPM</span>
+      <div class="time-estimate" id="timeEstimate"></div>
+    </div>
   </section>
+
+  <!-- PDF Zoom Modal -->
+  <div class="pdf-zoom-modal hidden" id="pdfZoomModal" onclick="closePdfZoom()">
+    <div class="pdf-zoom-content" onclick="event.stopPropagation()">
+      <button class="btn-sm pdf-zoom-close" onclick="closePdfZoom()">Close</button>
+      <img id="pdfZoomImage" class="pdf-zoom-image" src="" alt="Zoomed page" />
+    </div>
+  </div>
 
   <script src="/static/js/app.js"></script>
 </body>

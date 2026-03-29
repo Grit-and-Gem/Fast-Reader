@@ -11,10 +11,20 @@ let timerId      = null;
 let fontFamily   = 'Georgia';
 let fontSize     = 52;
 let selectedFile = null;
-let paraGapEnabled = true;
+let paraGapEnabled    = true;
+let paraGapMultiplier = 3;
+
+// Variable speed state
+let variableSpeedEnabled = false;
+let minWpm           = 200;
+let maxWpm           = 600;
+let rampRate         = 50;    // WPM increase per minute
+let variableElapsed  = 0;    // accumulated reading minutes (excludes pauses)
+let variableStartTime = null; // Date.now() when play started/resumed
+let effectiveWpm     = 300;
 
 // PDF page state
-let pages       = [];   // [{start_index, thumbnail}, ...]
+let pages       = [];   // [{start_index, thumbnail, thumbnail_hires}, ...]
 let currentPage = 0;
 let isPdfMode   = false;
 
@@ -46,10 +56,11 @@ const fontSizeInput   = document.getElementById('fontSizeInput');
 const pdfNav          = document.getElementById('pdfNav');
 const pdfThumbnail    = document.getElementById('pdfThumbnail');
 const pdfPageLabel    = document.getElementById('pdfPageLabel');
+const pdfZoomModal    = document.getElementById('pdfZoomModal');
+const pdfZoomImage    = document.getElementById('pdfZoomImage');
+const currentWpmDisplay = document.getElementById('currentWpmDisplay');
 
 // ── Optimal Recognition Point ──────────────────────────────
-// Returns the index of the focus letter within the word.
-// Based on Spritz-style ORP: roughly at ~35% into the word.
 function getORP(word) {
   const len = word.length;
   if (len <= 1) return 0;
@@ -72,15 +83,36 @@ function displayWord(word) {
   wordSuffix.textContent = suf;
 }
 
+function getEffectiveWpm() {
+  if (variableSpeedEnabled && variableStartTime !== null) {
+    const elapsedMin = variableElapsed + (Date.now() - variableStartTime) / 60000;
+    effectiveWpm = Math.min(minWpm + rampRate * elapsedMin, maxWpm);
+    return effectiveWpm;
+  }
+  if (variableSpeedEnabled) {
+    const elapsedMin = variableElapsed;
+    effectiveWpm = Math.min(minWpm + rampRate * elapsedMin, maxWpm);
+    return effectiveWpm;
+  }
+  return wpm;
+}
+
 function updateProgress() {
   const total = words.length;
   const pct   = total > 0 ? (currentIndex / total) * 100 : 0;
   progressBar.style.width = pct + '%';
   wordCounter.textContent = `${currentIndex} / ${total}`;
 
+  const currentWpm = getEffectiveWpm();
+
+  // Update live WPM display
+  if (variableSpeedEnabled) {
+    currentWpmDisplay.textContent = Math.round(currentWpm) + ' WPM';
+  }
+
   // Remaining time estimate
   const remaining = total - currentIndex;
-  const mins = remaining / wpm;
+  const mins = remaining / currentWpm;
   if (mins < 1) {
     timeEstimate.textContent = `< 1 min left`;
   } else {
@@ -93,11 +125,9 @@ function updateProgress() {
 }
 
 // ── Playback engine ────────────────────────────────────────
-// Recursive setTimeout so WPM changes take effect on the next word.
 function tick() {
   if (!isPlaying || currentIndex >= words.length) {
     if (currentIndex >= words.length && words.length > 0) {
-      // Reached the end
       isPlaying = false;
       updatePlayButton();
       wordCounter.textContent = `${words.length} / ${words.length}`;
@@ -108,13 +138,19 @@ function tick() {
   }
 
   const token = words[currentIndex];
-  const interval = 60000 / wpm;
+  const currentWpm = getEffectiveWpm();
+  const interval = 60000 / currentWpm;
+
+  // Update live WPM display
+  if (variableSpeedEnabled) {
+    currentWpmDisplay.textContent = Math.round(currentWpm) + ' WPM';
+  }
 
   // Paragraph break: insert a longer pause, skip the sentinel
   if (token === '__PARA__' && paraGapEnabled) {
     currentIndex++;
     updateProgress();
-    timerId = setTimeout(tick, interval * 3);  // 3x normal pause
+    timerId = setTimeout(tick, interval * paraGapMultiplier);
     return;
   }
   // If gap disabled, just skip the sentinel silently
@@ -133,10 +169,16 @@ function tick() {
 
 function play() {
   if (words.length === 0) return;
-  if (currentIndex >= words.length) currentIndex = 0; // auto-restart at end
+  if (currentIndex >= words.length) currentIndex = 0;
   isPlaying = true;
   updatePlayButton();
   placeholderText.style.display = 'none';
+
+  // Variable speed: start/resume timing
+  if (variableSpeedEnabled) {
+    variableStartTime = Date.now();
+  }
+
   tick();
 }
 
@@ -145,6 +187,12 @@ function pause() {
   clearTimeout(timerId);
   timerId = null;
   updatePlayButton();
+
+  // Variable speed: accumulate elapsed time
+  if (variableSpeedEnabled && variableStartTime !== null) {
+    variableElapsed += (Date.now() - variableStartTime) / 60000;
+    variableStartTime = null;
+  }
 }
 
 function togglePlay() {
@@ -154,6 +202,8 @@ function togglePlay() {
 function restart() {
   pause();
   currentIndex = 0;
+  variableElapsed = 0;
+  variableStartTime = null;
   if (words.length > 0) {
     displayWord(words[0]);
     updateProgress();
@@ -165,7 +215,6 @@ function stepBack() {
   pause();
   if (currentIndex > 1) currentIndex -= 2;
   else currentIndex = 0;
-  // Skip past __PARA__ sentinels
   while (currentIndex > 0 && words[currentIndex] === '__PARA__') currentIndex--;
   if (words.length > 0 && currentIndex < words.length) {
     displayWord(words[currentIndex]);
@@ -176,7 +225,6 @@ function stepBack() {
 
 function stepForward() {
   pause();
-  // Skip past __PARA__ sentinels
   while (currentIndex < words.length && words[currentIndex] === '__PARA__') currentIndex++;
   if (currentIndex < words.length) {
     displayWord(words[currentIndex]);
@@ -201,7 +249,6 @@ function seekTo(event) {
   const rect = event.currentTarget.getBoundingClientRect();
   const pct  = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
   let idx  = Math.floor(pct * words.length);
-  // Skip past __PARA__ sentinels
   while (idx < words.length && words[idx] === '__PARA__') idx++;
   currentIndex = idx;
   if (currentIndex < words.length) {
@@ -242,10 +289,72 @@ function applyFontStyle() {
   wordDisplay.style.fontSize   = fontSize + 'px';
 }
 
+// ── Paragraph gap ──────────────────────────────────────────
+function toggleParaGap(enabled) {
+  paraGapEnabled = enabled;
+  document.getElementById('paraGapLabel').textContent = enabled ? 'On' : 'Off';
+  const sliderRow = document.getElementById('paraGapSliderRow');
+  const slider = document.getElementById('paraGapSlider');
+  if (enabled) {
+    slider.disabled = false;
+    sliderRow.style.opacity = '1';
+  } else {
+    slider.disabled = true;
+    sliderRow.style.opacity = '0.35';
+  }
+}
+
+function updateParaGapMultiplier(value) {
+  const val = Math.max(1, Math.min(10, parseFloat(value) || 3));
+  paraGapMultiplier = val;
+  document.getElementById('paraGapSlider').value = val;
+  document.getElementById('paraGapValue').textContent = val + 'x';
+}
+
+// ── Variable speed ─────────────────────────────────────────
+function toggleVariableSpeed(enabled) {
+  variableSpeedEnabled = enabled;
+  document.getElementById('variableSpeedLabel').textContent = enabled ? 'On' : 'Off';
+  document.getElementById('variableSpeedSettings').classList.toggle('hidden', !enabled);
+  document.getElementById('wpmSettingGroup').classList.toggle('hidden', enabled);
+  currentWpmDisplay.classList.toggle('hidden', !enabled);
+
+  // Reset variable speed timing
+  variableElapsed = 0;
+  variableStartTime = null;
+  effectiveWpm = enabled ? minWpm : wpm;
+
+  if (enabled) {
+    currentWpmDisplay.textContent = Math.round(effectiveWpm) + ' WPM';
+  }
+}
+
+function updateMinWpm(value) {
+  minWpm = Math.max(50, Math.min(maxWpm - 10, parseInt(value) || 200));
+  document.getElementById('minWpmSlider').value = minWpm;
+  document.getElementById('minWpmInput').value = minWpm;
+}
+
+function updateMaxWpm(value) {
+  maxWpm = Math.max(minWpm + 10, Math.min(1200, parseInt(value) || 600));
+  document.getElementById('maxWpmSlider').value = maxWpm;
+  document.getElementById('maxWpmInput').value = maxWpm;
+}
+
+function updateRampRate(value) {
+  rampRate = Math.max(5, Math.min(200, parseInt(value) || 50));
+  document.getElementById('rampRateSlider').value = rampRate;
+  document.getElementById('rampRateInput').value = rampRate;
+}
+
 // ── Word loading helpers ───────────────────────────────────
 function onWordsLoaded(data) {
   words        = data.words;
   currentIndex = 0;
+
+  // Reset variable speed timing
+  variableElapsed = 0;
+  variableStartTime = null;
 
   // PDF mode detection
   if (data.pages && data.pages.length > 0) {
@@ -353,7 +462,6 @@ uploadArea.addEventListener('drop', (e) => {
   const file = e.dataTransfer.files[0];
   if (file && file.name.toLowerCase().endsWith('.pdf')) {
     loadPDF(file);
-    // auto-switch to PDF tab
     switchTab('pdf');
   } else {
     showError('Please drop a PDF file.');
@@ -362,7 +470,6 @@ uploadArea.addEventListener('drop', (e) => {
 
 // ── Keyboard shortcuts ─────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  // Don't fire when typing in textarea or inputs
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
   switch (e.key) {
@@ -400,23 +507,16 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       if (isPdfMode) goToPrevPage(); else goToPrevPara();
       break;
+    case 'Escape':
+      closePdfZoom();
+      break;
   }
 });
-
-// ── Paragraph gap toggle ───────────────────────────────────
-function toggleParaGap(enabled) {
-  paraGapEnabled = enabled;
-  document.getElementById('paraGapLabel').textContent = enabled ? 'On' : 'Off';
-}
 
 // ── Audio player ───────────────────────────────────────────
 function loadAudio(file) {
   if (!file) return;
-
-  // Revoke previous object URL
   if (audioObjectURL) URL.revokeObjectURL(audioObjectURL);
-
-  // Stop previous audio
   if (audioEl) {
     audioEl.pause();
     audioEl = null;
@@ -476,7 +576,6 @@ function setAudioLoop(enabled) {
 
 // ── PDF page tracking ──────────────────────────────────────
 function getCurrentPage(index) {
-  // Binary search: find the last page whose start_index <= index
   let lo = 0, hi = pages.length - 1;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
@@ -497,6 +596,11 @@ function updatePagePreview() {
   }
   pdfThumbnail.src = pages[currentPage].thumbnail;
   pdfPageLabel.textContent = `Page ${currentPage + 1} / ${pages.length}`;
+
+  // Update zoom image if modal is open
+  if (!pdfZoomModal.classList.contains('hidden')) {
+    pdfZoomImage.src = pages[currentPage].thumbnail_hires;
+  }
 }
 
 // ── PDF page navigation ────────────────────────────────────
@@ -532,9 +636,7 @@ function goToPrevPage() {
 function goToNextPara() {
   pause();
   let idx = currentIndex;
-  // Scan forward to find the next __PARA__ token
   while (idx < words.length && words[idx] !== '__PARA__') idx++;
-  // Skip past the __PARA__ sentinel(s)
   while (idx < words.length && words[idx] === '__PARA__') idx++;
   if (idx < words.length) {
     currentIndex = idx;
@@ -547,22 +649,17 @@ function goToNextPara() {
 
 function goToPrevPara() {
   pause();
-  // currentIndex points to the *next* word to display,
-  // so go back to find the previous paragraph start.
   let idx = currentIndex - 2;
   if (idx < 0) idx = 0;
 
-  // Skip back past current-paragraph words to find a __PARA__
   while (idx > 0 && words[idx] !== '__PARA__') idx--;
 
   if (words[idx] === '__PARA__' && idx > 0) {
-    idx--;  // Move before the __PARA__
-    // Skip back to find the previous __PARA__ or beginning
+    idx--;
     while (idx > 0 && words[idx] !== '__PARA__') idx--;
-    // If we landed on a __PARA__, move forward past it
     if (words[idx] === '__PARA__') idx++;
   } else {
-    idx = 0;  // We're in the first paragraph
+    idx = 0;
   }
 
   currentIndex = idx;
@@ -572,6 +669,17 @@ function goToPrevPara() {
     updateProgress();
     placeholderText.style.display = 'none';
   }
+}
+
+// ── PDF zoom ───────────────────────────────────────────────
+function togglePdfZoom() {
+  if (!isPdfMode || pages.length === 0) return;
+  pdfZoomImage.src = pages[currentPage].thumbnail_hires;
+  pdfZoomModal.classList.remove('hidden');
+}
+
+function closePdfZoom() {
+  pdfZoomModal.classList.add('hidden');
 }
 
 // ── Suggestions toggle ─────────────────────────────────────

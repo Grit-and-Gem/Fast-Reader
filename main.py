@@ -56,6 +56,68 @@ def clean_text(text: str) -> str:
     return text
 
 
+def extract_text_without_footnotes(page) -> str:
+    """Extract text from a PDF page, filtering out footnotes.
+
+    Uses font-size and position heuristics:
+    1. Find the dominant (body) font size by character count
+    2. Skip spans that are footnote references (small + short) or
+       footnote text (small font in the bottom ~18% of the page)
+    """
+    page_height = page.rect.height
+    page_dict = page.get_text("dict")
+
+    # Pass 1: collect font sizes weighted by character count
+    font_size_counts: dict[float, int] = {}
+    for block in page_dict["blocks"]:
+        if block["type"] != 0:  # skip image blocks
+            continue
+        for line in block["lines"]:
+            for span in line["spans"]:
+                size = round(span["size"], 1)
+                font_size_counts[size] = (
+                    font_size_counts.get(size, 0) + len(span["text"].strip())
+                )
+
+    if not font_size_counts:
+        return page.get_text("text")  # fallback
+
+    body_font_size = max(font_size_counts, key=font_size_counts.get)
+    footnote_threshold = body_font_size - 1.0
+    bottom_zone = page_height * 0.82
+
+    # Pass 2: collect text, filtering footnotes
+    result_lines: list[str] = []
+    for block in page_dict["blocks"]:
+        if block["type"] != 0:
+            continue
+        block_mid_y = (block["bbox"][1] + block["bbox"][3]) / 2
+
+        line_texts: list[str] = []
+        for line in block["lines"]:
+            span_texts: list[str] = []
+            for span in line["spans"]:
+                span_size = round(span["size"], 1)
+                span_text = span["text"]
+
+                # Skip small superscript footnote reference numbers
+                if span_size < footnote_threshold and len(span_text.strip()) <= 3:
+                    continue
+                # Skip footnote text at bottom of page
+                if block_mid_y > bottom_zone and span_size < body_font_size - 0.5:
+                    continue
+
+                span_texts.append(span_text)
+
+            if span_texts:
+                line_texts.append("".join(span_texts))
+
+        if line_texts:
+            result_lines.append(" ".join(line_texts))
+
+    return "\n\n".join(result_lines)
+
+
 def split_words(text: str) -> list[str]:
     """Split text into words, inserting a __PARA__ sentinel at paragraph boundaries."""
     # Normalise line endings and split on blank lines (paragraph breaks)
@@ -90,18 +152,23 @@ async def upload_pdf(file: UploadFile = File(...)):
         for page_num in range(len(doc)):
             page = doc[page_num]
 
-            # Generate thumbnail (half-size PNG → base64)
-            pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5))
-            thumb_b64 = (
+            # Generate thumbnails: small for preview, large for zoom
+            pix_sm = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5))
+            pix_lg = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
+            thumb_sm = (
                 "data:image/png;base64,"
-                + base64.b64encode(pix.tobytes("png")).decode("ascii")
+                + base64.b64encode(pix_sm.tobytes("png")).decode("ascii")
+            )
+            thumb_lg = (
+                "data:image/png;base64,"
+                + base64.b64encode(pix_lg.tobytes("png")).decode("ascii")
             )
 
             # Record page start index (before adding separator)
             page_start = len(all_words)
 
-            # Extract and tokenise this page's text
-            page_text = page.get_text("text")
+            # Extract text with footnote removal
+            page_text = extract_text_without_footnotes(page)
             page_words = split_words(clean_text(page_text))
 
             if page_words:
@@ -113,7 +180,8 @@ async def upload_pdf(file: UploadFile = File(...)):
 
             pages_meta.append({
                 "start_index": page_start,
-                "thumbnail": thumb_b64,
+                "thumbnail": thumb_sm,
+                "thumbnail_hires": thumb_lg,
             })
 
         doc.close()
