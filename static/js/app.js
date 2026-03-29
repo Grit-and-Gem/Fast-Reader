@@ -33,7 +33,8 @@ let audioEl       = null;  // HTMLAudioElement
 let audioPlaying  = false;
 let audioObjectURL = null;
 
-// ── DOM refs ───────────────────────────────────────────────
+// Fullscreen line-preview context window (words on each side of current word)
+const FS_LINE_WINDOW = 8;
 const wordPrefix      = document.getElementById('wordPrefix');
 const wordFocus       = document.getElementById('wordFocus');
 const wordSuffix      = document.getElementById('wordSuffix');
@@ -60,6 +61,26 @@ const pdfZoomModal    = document.getElementById('pdfZoomModal');
 const pdfZoomImage    = document.getElementById('pdfZoomImage');
 const currentWpmDisplay = document.getElementById('currentWpmDisplay');
 
+// Fullscreen DOM refs
+const fsOverlay         = document.getElementById('fsOverlay');
+const fsWordPrefix      = document.getElementById('fsWordPrefix');
+const fsWordFocus       = document.getElementById('fsWordFocus');
+const fsWordSuffix      = document.getElementById('fsWordSuffix');
+const fsWordDisplay     = document.getElementById('fsWordDisplay');
+const fsProgressBar     = document.getElementById('fsProgressBar');
+const fsWordCounter     = document.getElementById('fsWordCounter');
+const fsTimeEstimate    = document.getElementById('fsTimeEstimate');
+const fsCurrentWpmDisplay = document.getElementById('fsCurrentWpmDisplay');
+const fsBtnPlay         = document.getElementById('fsBtnPlay');
+const fsBtnRestart      = document.getElementById('fsBtnRestart');
+const fsBtnStepBack     = document.getElementById('fsBtnStepBack');
+const fsBtnStepFwd      = document.getElementById('fsBtnStepFwd');
+const fsBtnIconPlay     = fsBtnPlay.querySelector('.icon-play');
+const fsBtnIconPause    = fsBtnPlay.querySelector('.icon-pause');
+const fsWpmSlider       = document.getElementById('fsWpmSlider');
+const fsWpmInput        = document.getElementById('fsWpmInput');
+const fsLinePreview     = document.getElementById('fsLinePreview');
+
 // ── Optimal Recognition Point ──────────────────────────────
 function getORP(word) {
   const len = word.length;
@@ -81,6 +102,13 @@ function displayWord(word) {
   wordPrefix.textContent = pre;
   wordFocus.textContent  = focus;
   wordSuffix.textContent = suf;
+
+  // Mirror to fullscreen display
+  fsWordPrefix.textContent = pre;
+  fsWordFocus.textContent  = focus;
+  fsWordSuffix.textContent = suf;
+
+  updateLinePreview();
 }
 
 function getEffectiveWpm() {
@@ -101,25 +129,31 @@ function updateProgress() {
   const total = words.length;
   const pct   = total > 0 ? (currentIndex / total) * 100 : 0;
   progressBar.style.width = pct + '%';
+  fsProgressBar.style.width = pct + '%';
   wordCounter.textContent = `${currentIndex} / ${total}`;
+  fsWordCounter.textContent = `${currentIndex} / ${total}`;
 
   const currentWpm = getEffectiveWpm();
 
   // Update live WPM display
   if (variableSpeedEnabled) {
     currentWpmDisplay.textContent = Math.round(currentWpm) + ' WPM';
+    fsCurrentWpmDisplay.textContent = Math.round(currentWpm) + ' WPM';
   }
 
   // Remaining time estimate
   const remaining = total - currentIndex;
   const mins = remaining / currentWpm;
+  let timeText;
   if (mins < 1) {
-    timeEstimate.textContent = `< 1 min left`;
+    timeText = `< 1 min left`;
   } else {
     const m = Math.floor(mins);
     const s = Math.round((mins - m) * 60);
-    timeEstimate.textContent = s > 0 ? `~${m}m ${s}s left` : `~${m}m left`;
+    timeText = s > 0 ? `~${m}m ${s}s left` : `~${m}m left`;
   }
+  timeEstimate.textContent = timeText;
+  fsTimeEstimate.textContent = timeText;
 
   updatePagePreview();
 }
@@ -237,9 +271,13 @@ function updatePlayButton() {
   if (isPlaying) {
     iconPlay.classList.add('hidden');
     iconPause.classList.remove('hidden');
+    fsBtnIconPlay.classList.add('hidden');
+    fsBtnIconPause.classList.remove('hidden');
   } else {
     iconPlay.classList.remove('hidden');
     iconPause.classList.add('hidden');
+    fsBtnIconPlay.classList.remove('hidden');
+    fsBtnIconPause.classList.add('hidden');
   }
 }
 
@@ -268,6 +306,8 @@ function updateWPM(value) {
   wpm = val;
   wpmSlider.value = val;
   wpmInput.value  = val;
+  fsWpmSlider.value = val;
+  fsWpmInput.value  = val;
   updateProgress();
 }
 
@@ -285,8 +325,10 @@ function updateFontSize(value) {
 }
 
 function applyFontStyle() {
-  wordDisplay.style.fontFamily = fontFamily;
-  wordDisplay.style.fontSize   = fontSize + 'px';
+  wordDisplay.style.fontFamily   = fontFamily;
+  wordDisplay.style.fontSize     = fontSize + 'px';
+  fsWordDisplay.style.fontFamily = fontFamily;
+  fsWordDisplay.style.fontSize   = fontSize + 'px';
 }
 
 // ── Paragraph gap ──────────────────────────────────────────
@@ -323,7 +365,14 @@ function toggleVariableSpeed(enabled) {
   wpmSlider.disabled = enabled;
   wpmInput.disabled  = enabled;
 
+  // Sync fullscreen fixed-speed controls
+  const fsSpeedGroup = document.getElementById('fsSpeedGroup');
+  fsSpeedGroup.classList.toggle('setting-group--disabled', enabled);
+  fsWpmSlider.disabled = enabled;
+  fsWpmInput.disabled  = enabled;
+
   currentWpmDisplay.classList.toggle('hidden', !enabled);
+  fsCurrentWpmDisplay.classList.toggle('hidden', !enabled);
 
   // Reset variable speed timing
   variableElapsed = 0;
@@ -332,6 +381,7 @@ function toggleVariableSpeed(enabled) {
 
   if (enabled) {
     currentWpmDisplay.textContent = Math.round(effectiveWpm) + ' WPM';
+    fsCurrentWpmDisplay.textContent = Math.round(effectiveWpm) + ' WPM';
   }
 }
 
@@ -352,6 +402,95 @@ function updateRampRate(value) {
   document.getElementById('rampRateSlider').value = rampRate;
   document.getElementById('rampRateInput').value = rampRate;
 }
+
+// ── Fullscreen mode ─────────────────────────────────────────
+function updateLinePreview() {
+  if (words.length === 0) {
+    fsLinePreview.innerHTML = '<span class="fs-line-placeholder">—</span>';
+    return;
+  }
+
+  const WINDOW = FS_LINE_WINDOW; // real words on each side
+  const displayIdx = Math.max(0, currentIndex - 1);
+
+  // Find start: go back WINDOW real words
+  let start = displayIdx;
+  let count = 0;
+  while (start > 0 && count < WINDOW) {
+    start--;
+    if (words[start] !== '__PARA__') count++;
+  }
+
+  // Find end: go forward WINDOW real words
+  let end = displayIdx;
+  count = 0;
+  while (end < words.length - 1 && count < WINDOW) {
+    end++;
+    if (words[end] !== '__PARA__') count++;
+  }
+
+  // Build span elements
+  fsLinePreview.innerHTML = '';
+  for (let i = start; i <= end; i++) {
+    if (words[i] === '__PARA__') continue;
+    const span = document.createElement('span');
+    span.className = 'fs-line-word' + (i === displayIdx ? ' fs-current-word' : '');
+    span.textContent = words[i];
+    fsLinePreview.appendChild(span);
+  }
+}
+
+function enterFullscreen() {
+  // Sync WPM sliders
+  fsWpmSlider.value = wpm;
+  fsWpmInput.value  = wpm;
+
+  // Sync variable speed state in header
+  const fsSpeedGroup = document.getElementById('fsSpeedGroup');
+  fsSpeedGroup.classList.toggle('setting-group--disabled', variableSpeedEnabled);
+  fsWpmSlider.disabled = variableSpeedEnabled;
+  fsWpmInput.disabled  = variableSpeedEnabled;
+  fsCurrentWpmDisplay.classList.toggle('hidden', !variableSpeedEnabled);
+  if (variableSpeedEnabled) {
+    fsCurrentWpmDisplay.textContent = Math.round(getEffectiveWpm()) + ' WPM';
+  }
+
+  // Sync audio volume and show controls if audio is loaded
+  if (audioEl) {
+    document.getElementById('fsAudioVolume').value =
+      document.getElementById('audioVolume').value;
+    document.getElementById('fsMusicControls').classList.remove('hidden');
+    updateAudioButton();
+  }
+
+  // Sync font
+  applyFontStyle();
+
+  // Update line preview
+  updateLinePreview();
+
+  // Show the overlay
+  fsOverlay.classList.remove('hidden');
+
+  // Request native fullscreen when supported
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function exitFullscreen() {
+  fsOverlay.classList.add('hidden');
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+// Exit fullscreen when browser native fullscreen is exited (e.g. Esc key)
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    fsOverlay.classList.add('hidden');
+  }
+});
 
 // ── Word loading helpers ───────────────────────────────────
 function onWordsLoaded(data) {
@@ -385,6 +524,10 @@ function onWordsLoaded(data) {
   btnRestart.disabled  = false;
   btnStepBack.disabled = false;
   btnStepFwd.disabled  = false;
+  fsBtnPlay.disabled     = false;
+  fsBtnRestart.disabled  = false;
+  fsBtnStepBack.disabled = false;
+  fsBtnStepFwd.disabled  = false;
 
   showError(null);
 }
@@ -513,7 +656,19 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       if (isPdfMode) goToPrevPage(); else goToPrevPara();
       break;
+    case 'f':
+    case 'F':
+      e.preventDefault();
+      if (fsOverlay.classList.contains('hidden')) {
+        enterFullscreen();
+      } else {
+        exitFullscreen();
+      }
+      break;
     case 'Escape':
+      if (!fsOverlay.classList.contains('hidden')) {
+        exitFullscreen();
+      }
       closePdfZoom();
       break;
   }
@@ -543,6 +698,7 @@ function loadAudio(file) {
 
   document.getElementById('audioFilename').textContent = file.name;
   document.getElementById('audioPlayerRow').classList.remove('hidden');
+  document.getElementById('fsMusicControls').classList.remove('hidden');
   audioPlaying = false;
   updateAudioButton();
 }
@@ -569,6 +725,18 @@ function updateAudioButton() {
   } else {
     iconPlay.classList.remove('hidden');
     iconPause.classList.add('hidden');
+  }
+
+  // Sync fullscreen audio button
+  const fsBtn = document.getElementById('fsBtnAudioPlay');
+  const fsIconPlay  = fsBtn.querySelector('.audio-icon-play');
+  const fsIconPause = fsBtn.querySelector('.audio-icon-pause');
+  if (audioPlaying) {
+    fsIconPlay.classList.add('hidden');
+    fsIconPause.classList.remove('hidden');
+  } else {
+    fsIconPlay.classList.remove('hidden');
+    fsIconPause.classList.add('hidden');
   }
 }
 

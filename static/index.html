@@ -233,6 +233,12 @@
     </div>
 
     <div class="placeholder-text" id="placeholderText">Load text or a PDF to begin</div>
+
+    <button class="fs-enter-btn" id="btnEnterFullscreen" onclick="enterFullscreen()" title="Full screen reading (F)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+      </svg>
+    </button>
   </main>
 
   <!-- Progress Bar -->
@@ -285,6 +291,100 @@
     <div class="pdf-zoom-content" onclick="event.stopPropagation()">
       <button class="btn-sm pdf-zoom-close" onclick="closePdfZoom()">Close</button>
       <img id="pdfZoomImage" class="pdf-zoom-image" src="" alt="Zoomed page" />
+    </div>
+  </div>
+
+  <!-- Fullscreen Reading Overlay -->
+  <div class="fs-overlay hidden" id="fsOverlay">
+
+    <!-- Top header: speed + music + exit -->
+    <div class="fs-header">
+      <div class="fs-header-left">
+        <div class="fs-speed-group" id="fsSpeedGroup">
+          <span class="fs-label">Speed</span>
+          <div class="slider-row">
+            <input type="range" id="fsWpmSlider" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+            <input type="number" id="fsWpmInput" min="100" max="1200" step="10" value="300" oninput="updateWPM(this.value)" />
+            <span class="unit">WPM</span>
+          </div>
+        </div>
+        <span class="current-wpm-display hidden" id="fsCurrentWpmDisplay">300 WPM</span>
+      </div>
+
+      <div class="fs-header-right">
+        <div class="fs-music hidden" id="fsMusicControls">
+          <button class="ctrl-btn-sm" id="fsBtnAudioPlay" onclick="toggleAudio()" title="Play / Pause music">
+            <svg class="audio-icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg class="audio-icon-pause hidden" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="volume-icon">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+          </svg>
+          <input type="range" id="fsAudioVolume" min="0" max="1" step="0.05" value="0.5" oninput="setAudioVolume(this.value)" class="volume-slider" />
+        </div>
+        <button class="btn-sm fs-close-btn" onclick="exitFullscreen()" title="Exit full screen (Esc / F)">&#x2715; Exit</button>
+      </div>
+    </div>
+
+    <!-- Line preview -->
+    <div class="fs-line-preview" id="fsLinePreview">
+      <span class="fs-line-placeholder">—</span>
+    </div>
+
+    <!-- Centered word display -->
+    <div class="fs-word-area">
+      <div class="focus-guide">
+        <div class="focus-line top"></div>
+        <div class="focus-dot"></div>
+        <div class="focus-line bottom"></div>
+      </div>
+      <div class="word-display" id="fsWordDisplay">
+        <span class="word-prefix" id="fsWordPrefix"></span>
+        <span class="word-focus" id="fsWordFocus">·</span>
+        <span class="word-suffix" id="fsWordSuffix"></span>
+      </div>
+    </div>
+
+    <!-- Bottom controls -->
+    <div class="fs-bottom">
+      <div class="progress-container" id="fsProgressContainer" onclick="seekTo(event)">
+        <div class="progress-bar" id="fsProgressBar"></div>
+      </div>
+      <div class="fs-controls-row">
+        <div class="counter" id="fsWordCounter">0 / 0</div>
+        <div class="control-buttons">
+          <button class="ctrl-btn" id="fsBtnRestart" onclick="restart()" title="Restart" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="fsBtnStepBack" onclick="stepBack()" title="Previous word" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn play-btn" id="fsBtnPlay" onclick="togglePlay()" title="Play / Pause" disabled>
+            <svg class="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <svg class="icon-pause hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="fsBtnStepFwd" onclick="stepForward()" title="Next word" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="controls-right">
+          <div class="time-estimate" id="fsTimeEstimate"></div>
+        </div>
+      </div>
     </div>
   </div>
 
