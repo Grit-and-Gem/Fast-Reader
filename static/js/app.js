@@ -12,12 +12,12 @@ let fontFamily   = 'Georgia';
 let fontSize     = 52;
 let selectedFile = null;
 let paraGapEnabled    = true;
-let paraGapMultiplier = 3;
+let paraGapMultiplier = 2;
 
 // Variable speed state
 let variableSpeedEnabled = false;
-let minWpm           = 200;
-let maxWpm           = 600;
+let minWpm           = 300;
+let maxWpm           = 700;
 let rampRate         = 50;    // WPM increase per minute
 let variableElapsed  = 0;    // accumulated reading minutes (excludes pauses)
 let variableStartTime = null; // Date.now() when play started/resumed
@@ -316,7 +316,13 @@ function toggleVariableSpeed(enabled) {
   variableSpeedEnabled = enabled;
   document.getElementById('variableSpeedLabel').textContent = enabled ? 'On' : 'Off';
   document.getElementById('variableSpeedSettings').classList.toggle('hidden', !enabled);
-  document.getElementById('wpmSettingGroup').classList.toggle('hidden', enabled);
+
+  // Disable (not hide) the fixed-speed controls when variable speed is active
+  const wpmGroup = document.getElementById('wpmSettingGroup');
+  wpmGroup.classList.toggle('setting-group--disabled', enabled);
+  wpmSlider.disabled = enabled;
+  wpmInput.disabled  = enabled;
+
   currentWpmDisplay.classList.toggle('hidden', !enabled);
 
   // Reset variable speed timing

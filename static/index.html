@@ -70,6 +70,52 @@
     </div>
 
     <div class="setting-group">
+      <label>Paragraph Gap</label>
+      <label class="toggle">
+        <input type="checkbox" id="paraGapToggle" checked onchange="toggleParaGap(this.checked)" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="paraGapLabel">On</span>
+      </label>
+      <div class="slider-row" id="paraGapSliderRow">
+        <input type="range" id="paraGapSlider" min="1" max="10" step="0.5" value="2" oninput="updateParaGapMultiplier(this.value)" />
+        <span class="para-gap-value" id="paraGapValue">2x</span>
+      </div>
+    </div>
+
+    <!-- Variable speed sub-settings (shown inline when toggled on) -->
+    <div id="variableSpeedSettings" class="variable-speed-inline hidden">
+      <div class="setting-group">
+        <label for="minWpmSlider">Min WPM</label>
+        <div class="slider-row">
+          <input type="range" id="minWpmSlider" min="50" max="1000" step="10" value="300" oninput="updateMinWpm(this.value)" />
+          <input type="number" id="minWpmInput" min="50" max="1000" step="10" value="300" oninput="updateMinWpm(this.value)" />
+          <span class="unit">WPM</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label for="maxWpmSlider">Max WPM</label>
+        <div class="slider-row">
+          <input type="range" id="maxWpmSlider" min="100" max="1200" step="10" value="700" oninput="updateMaxWpm(this.value)" />
+          <input type="number" id="maxWpmInput" min="100" max="1200" step="10" value="700" oninput="updateMaxWpm(this.value)" />
+          <span class="unit">WPM</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label for="rampRateSlider">Ramp Rate</label>
+        <div class="slider-row">
+          <input type="range" id="rampRateSlider" min="5" max="200" step="5" value="50" oninput="updateRampRate(this.value)" />
+          <input type="number" id="rampRateInput" min="5" max="200" step="5" value="50" oninput="updateRampRate(this.value)" />
+          <span class="unit">WPM/min</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Font & Size Bar -->
+  <section class="settings-bar font-size-bar">
+    <div class="setting-group">
       <label for="fontSelect">Font</label>
       <select id="fontSelect" onchange="updateFont()">
         <option value="Georgia">Georgia</option>
@@ -89,49 +135,6 @@
         <input type="range" id="fontSizeSlider" min="24" max="96" step="2" value="52" oninput="updateFontSize(this.value)" />
         <input type="number" id="fontSizeInput" min="24" max="96" value="52" oninput="updateFontSize(this.value)" />
         <span class="unit">px</span>
-      </div>
-    </div>
-
-    <div class="setting-group">
-      <label>Paragraph Gap</label>
-      <label class="toggle">
-        <input type="checkbox" id="paraGapToggle" checked onchange="toggleParaGap(this.checked)" />
-        <span class="toggle-slider"></span>
-        <span class="toggle-label" id="paraGapLabel">On</span>
-      </label>
-      <div class="slider-row" id="paraGapSliderRow">
-        <input type="range" id="paraGapSlider" min="1" max="10" step="0.5" value="3" oninput="updateParaGapMultiplier(this.value)" />
-        <span class="para-gap-value" id="paraGapValue">3x</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Variable Speed Settings (hidden by default) -->
-  <section class="settings-bar variable-speed-bar hidden" id="variableSpeedSettings">
-    <div class="setting-group">
-      <label for="minWpmSlider">Min WPM</label>
-      <div class="slider-row">
-        <input type="range" id="minWpmSlider" min="50" max="1000" step="10" value="200" oninput="updateMinWpm(this.value)" />
-        <input type="number" id="minWpmInput" min="50" max="1000" step="10" value="200" oninput="updateMinWpm(this.value)" />
-        <span class="unit">WPM</span>
-      </div>
-    </div>
-
-    <div class="setting-group">
-      <label for="maxWpmSlider">Max WPM</label>
-      <div class="slider-row">
-        <input type="range" id="maxWpmSlider" min="100" max="1200" step="10" value="600" oninput="updateMaxWpm(this.value)" />
-        <input type="number" id="maxWpmInput" min="100" max="1200" step="10" value="600" oninput="updateMaxWpm(this.value)" />
-        <span class="unit">WPM</span>
-      </div>
-    </div>
-
-    <div class="setting-group">
-      <label for="rampRateSlider">Ramp Rate</label>
-      <div class="slider-row">
-        <input type="range" id="rampRateSlider" min="5" max="200" step="5" value="50" oninput="updateRampRate(this.value)" />
-        <input type="number" id="rampRateInput" min="5" max="200" step="5" value="50" oninput="updateRampRate(this.value)" />
-        <span class="unit">WPM/min</span>
       </div>
     </div>
   </section>
