@@ -370,6 +370,19 @@
 
     <!-- Centered word display -->
     <div class="fs-word-area">
+
+      <!-- PDF page panel: left-center, only visible in PDF mode -->
+      <div class="fs-pdf-panel hidden" id="fsPdfPanel">
+        <img id="fsPdfThumbnail" class="fs-pdf-thumb" src="" alt="Page preview" onclick="togglePdfZoom()" title="Click to zoom" />
+        <div class="fs-pdf-info">
+          <span class="fs-pdf-label" id="fsPdfPageLabel">Page 1 / 1</span>
+          <div class="fs-pdf-nav-btns">
+            <button class="btn-sm fs-pdf-nav-btn" onclick="goToPrevPage()" title="Previous page">&#9664;</button>
+            <button class="btn-sm fs-pdf-nav-btn" onclick="goToNextPage()" title="Next page">&#9654;</button>
+          </div>
+        </div>
+      </div>
+
       <div class="focus-guide">
         <div class="focus-line top"></div>
         <div class="focus-dot"></div>

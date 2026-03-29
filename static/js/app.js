@@ -86,6 +86,9 @@ const fsFontSizeInput   = document.getElementById('fsFontSizeInput');
 const fsAudioPlayerRow  = document.getElementById('fsAudioPlayerRow');
 const fsAudioFilename   = document.getElementById('fsAudioFilename');
 const fsAudioVolume     = document.getElementById('fsAudioVolume');
+const fsPdfPanel        = document.getElementById('fsPdfPanel');
+const fsPdfThumbnail    = document.getElementById('fsPdfThumbnail');
+const fsPdfPageLabel    = document.getElementById('fsPdfPageLabel');
 
 // ── Optimal Recognition Point ──────────────────────────────
 function getORP(word) {
@@ -482,6 +485,15 @@ function enterFullscreen() {
   // Sync font styles
   applyFontStyle();
 
+  // Show / hide PDF panel and sync initial thumbnail
+  if (isPdfMode && pages.length > 0) {
+    fsPdfThumbnail.src = pages[currentPage].thumbnail;
+    fsPdfPageLabel.textContent = `Page ${currentPage + 1} / ${pages.length}`;
+    fsPdfPanel.classList.remove('hidden');
+  } else {
+    fsPdfPanel.classList.add('hidden');
+  }
+
   // Update line preview
   updateLinePreview();
 
@@ -523,11 +535,13 @@ function onWordsLoaded(data) {
     isPdfMode = true;
     currentPage = 0;
     pdfNav.classList.remove('hidden');
+    fsPdfPanel.classList.remove('hidden');
   } else {
     pages = [];
     isPdfMode = false;
     currentPage = 0;
     pdfNav.classList.add('hidden');
+    fsPdfPanel.classList.add('hidden');
   }
 
   // Show first word paused
@@ -794,8 +808,13 @@ function updatePagePreview() {
   if (pageIdx !== currentPage) {
     currentPage = pageIdx;
   }
+  const label = `Page ${currentPage + 1} / ${pages.length}`;
   pdfThumbnail.src = pages[currentPage].thumbnail;
-  pdfPageLabel.textContent = `Page ${currentPage + 1} / ${pages.length}`;
+  pdfPageLabel.textContent = label;
+
+  // Mirror to fullscreen PDF panel
+  fsPdfThumbnail.src = pages[currentPage].thumbnail;
+  fsPdfPageLabel.textContent = label;
 
   // Update zoom image if modal is open
   if (!pdfZoomModal.classList.contains('hidden')) {
