@@ -12,12 +12,12 @@ let fontFamily   = 'Georgia';
 let fontSize     = 52;
 let selectedFile = null;
 let paraGapEnabled    = true;
-let paraGapMultiplier = 3;
+let paraGapMultiplier = 2;
 
 // Variable speed state
 let variableSpeedEnabled = false;
-let minWpm           = 200;
-let maxWpm           = 600;
+let minWpm           = 300;
+let maxWpm           = 700;
 let rampRate         = 50;    // WPM increase per minute
 let variableElapsed  = 0;    // accumulated reading minutes (excludes pauses)
 let variableStartTime = null; // Date.now() when play started/resumed
