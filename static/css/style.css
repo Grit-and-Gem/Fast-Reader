@@ -1101,14 +1101,18 @@ select:focus {
 /* PDF page panel in fullscreen — absolute, left-center */
 .fs-pdf-panel {
   position: absolute;
-  left: 20px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  opacity: 0.5;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 8px;
+  opacity: 0.85;
   transition: opacity 0.2s;
   z-index: 10;
 }
