@@ -610,17 +610,134 @@ function loadPDF(file) {
 async function submitPDF() {
   if (!selectedFile) { showError('Please select a PDF file.'); return; }
 
+  const progressWrap  = document.getElementById('pdfProgressWrap');
+  const progressFill  = document.getElementById('pdfProgressFill');
+  const progressLabel = document.getElementById('pdfProgressLabel');
+  const loadBtn       = document.getElementById('loadPdfBtn');
+
+  // Show progress bar, disable buttons during upload
+  progressWrap.classList.remove('hidden');
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Uploading…';
+  loadBtn.disabled = true;
+
   const formData = new FormData();
   formData.append('file', selectedFile);
 
   try {
-    const res  = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) { showError(data.detail || 'Failed to parse PDF.'); return; }
-    onWordsLoaded(data);
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload-pdf');
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          // Upload phase: 0→80%
+          const pct = Math.round((e.loaded / e.total) * 80);
+          progressFill.style.width = pct + '%';
+          progressLabel.textContent = `Uploading… ${pct}%`;
+        }
+      });
+
+      xhr.upload.addEventListener('load', () => {
+        // Upload done; server is processing the PDF
+        progressFill.style.width = '85%';
+        progressLabel.textContent = 'Processing…';
+      });
+
+      xhr.addEventListener('load', () => {
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Done';
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            onWordsLoaded(data);
+            resolve();
+          } catch (e) {
+            reject(new Error('Invalid server response.'));
+          }
+        } else {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            reject(new Error(data.detail || 'Failed to parse PDF.'));
+          } catch (_) {
+            reject(new Error('Failed to parse PDF.'));
+          }
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('Network error.')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled.')));
+
+      xhr.send(formData);
+    });
   } catch (e) {
-    showError('Network error: ' + e.message);
+    showError(e.message);
+    progressWrap.classList.add('hidden');
+    loadBtn.disabled = false;
   }
+}
+
+function resetPdf() {
+  // Clear file selection
+  selectedFile = null;
+  const pdfInput = document.getElementById('pdfInput');
+  pdfInput.value = '';
+  document.getElementById('uploadFilename').textContent = 'No file selected';
+  document.getElementById('loadPdfBtn').disabled = true;
+
+  // Hide and reset progress bar
+  const progressWrap = document.getElementById('pdfProgressWrap');
+  progressWrap.classList.add('hidden');
+  document.getElementById('pdfProgressFill').style.width = '0%';
+
+  // Reset reader state
+  words        = [];
+  currentIndex = 0;
+  pages        = [];
+  isPdfMode    = false;
+  currentPage  = 0;
+  isPlaying    = false;
+  if (timerId) { clearTimeout(timerId); timerId = null; }
+
+  // Hide PDF nav
+  pdfNav.classList.add('hidden');
+  fsPdfPanel.classList.add('hidden');
+
+  // Reset word display
+  wordDisplay.style.display = 'none';
+  placeholderText.style.display = '';
+  wordFocus.textContent = '·';
+  wordPrefix.textContent = '';
+  wordSuffix.textContent = '';
+
+  // Reset progress bar
+  progressBar.style.width = '0%';
+  fsProgressBar.style.width = '0%';
+
+  // Disable controls
+  btnPlay.disabled     = true;
+  btnRestart.disabled  = true;
+  btnStepBack.disabled = true;
+  btnStepFwd.disabled  = true;
+  fsBtnPlay.disabled    = true;
+  fsBtnRestart.disabled = true;
+  fsBtnStepBack.disabled = true;
+  fsBtnStepFwd.disabled  = true;
+
+  // Reset counters
+  wordCounter.textContent   = '0 / 0';
+  fsWordCounter.textContent = '0 / 0';
+  timeEstimate.textContent   = '';
+  fsTimeEstimate.textContent = '';
+
+  // Update play icon
+  iconPlay.classList.remove('hidden');
+  iconPause.classList.add('hidden');
+  fsBtnIconPlay.classList.remove('hidden');
+  fsBtnIconPause.classList.add('hidden');
+
+  // Clear error message
+  errorMsg.classList.add('hidden');
 }
 
 // ── Drag-and-drop for PDF area ─────────────────────────────

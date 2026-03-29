@@ -41,7 +41,16 @@
         <p class="upload-hint" id="uploadFilename">No file selected</p>
       </div>
       <input type="file" id="pdfInput" accept=".pdf" style="display:none" onchange="loadPDF(this.files[0])" />
-      <button class="btn-primary" id="loadPdfBtn" onclick="submitPDF()" disabled>Load PDF</button>
+      <div class="pdf-upload-progress-wrap hidden" id="pdfProgressWrap">
+        <div class="pdf-upload-progress-bar">
+          <div class="pdf-upload-progress-fill" id="pdfProgressFill"></div>
+        </div>
+        <span class="pdf-upload-progress-label" id="pdfProgressLabel">Uploading…</span>
+      </div>
+      <div class="pdf-action-row">
+        <button class="btn-primary" id="loadPdfBtn" onclick="submitPDF()" disabled>Load PDF</button>
+        <button class="btn-secondary" id="btnResetPdf" onclick="resetPdf()" title="Clear uploaded file and reset reader">Reset</button>
+      </div>
     </div>
 
     <div class="error-msg hidden" id="errorMsg"></div>
